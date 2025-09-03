@@ -1,0 +1,34 @@
+# Bench Sales CRM - Local Infrastructure
+# Created by Balaji Koneti
+# This file sets up PostgreSQL database and Mailhog for local development
+
+version: "3.9"
+services:
+  # PostgreSQL database service
+  db:
+    image: postgres:15
+    container_name: benchcrm_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: benchcrm
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Mailhog service for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: benchcrm_mailhog
+    ports:
+      - "1025:1025"   # SMTP port
+      - "8025:8025"   # Web UI port
+
+volumes:
+  db_data:

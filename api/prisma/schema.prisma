@@ -1,0 +1,50 @@
+// Bench Sales CRM Database Schema
+// Created by Balaji Koneti
+// This file defines the database models and relationships
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Company model - represents staffing companies
+model Company {
+  id          String       @id @default(uuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  users       User[]
+  consultants Consultant[]
+}
+
+// User model - represents company employees
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("Recruiter")
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  createdAt DateTime @default(now())
+}
+
+// Consultant model - represents available consultants
+model Consultant {
+  id              String   @id @default(uuid())
+  company         Company  @relation(fields: [companyId], references: [id])
+  companyId       String
+  name            String
+  email           String?  @unique
+  phone           String?
+  primarySkill    String?
+  skills          String[]
+  visaStatus      String?
+  location        String?
+  availabilityDate DateTime?
+  rateMin         Int?
+  remoteOk        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}

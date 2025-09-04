@@ -192,6 +192,25 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ## 🐛 Troubleshooting
 
+### Quick Fix Scripts
+
+I've created automated scripts to fix all common errors:
+
+**PowerShell (Recommended):**
+```powershell
+.\fix-errors.ps1
+```
+
+**Windows Batch:**
+```cmd
+fix-errors.bat
+```
+
+**Manual Setup:**
+```powershell
+.\setup-env.ps1
+```
+
 ### Common Issues
 
 1. **API can't connect to database**
@@ -211,6 +230,10 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 4. **Dependencies issues**
    - Delete node_modules and package-lock.json
    - Run `npm install` again
+
+5. **Missing environment files**
+   - Run `.\setup-env.ps1` to create .env files
+   - Or manually create `api\.env` and `web\.env.local`
 
 ### Reset Everything
 ```bash

@@ -1,7 +1,0 @@
-/* Bench Sales CRM Web App - Global Styles */
-/* Created by Balaji Koneti */
-/* This file imports Tailwind CSS and provides global styling */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;

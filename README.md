@@ -476,3 +476,324 @@ INTEGRATIONS_EMAIL_*=...
 * **Practical:** human‑in‑the‑loop controls, explainability, and cost awareness baked in.
 
 > This plan positions BenchCRM as an enterprise‑grade, AI‑native CRM your 20‑senior‑engineer team can deliver with confidence and pride.
+
+Tech Stack (Final)
+Frontend
+
+Framework: Next.js 14 (App Router, React 18, TypeScript)
+
+UI: Tailwind CSS + shadcn/ui (headless, accessible primitives)
+
+Motion: Framer Motion (micro-interactions, low overhead)
+
+State & Data: TanStack Query (server cache) + Zustand (local UI state)
+
+Forms & Validation: React Hook Form + Zod
+
+Tables/Lists: TanStack Table (virtualized lists)
+
+Charts: Recharts
+
+Auth: Auth0 (OIDC/OAuth2; can swap for Entra/Keycloak later)
+
+i18n: next-intl (routing-friendly)
+
+Testing: Playwright (e2e), Vitest + Testing Library (unit/comp)
+
+Why this FE stack?
+
+Performance & DX: Next.js App Router gives RSC, streaming, route-level caching; Tailwind + shadcn/ui accelerates consistent, accessible UI.
+
+Scalability: TanStack Query standardizes async/data cache; Zustand is tiny for local UI state.
+
+Enterprise-ready: Auth0/SSO path is mature; Playwright + Vitest give reliable test coverage.
+
+Beauty + Speed: Framer Motion for subtle motion without compromising TTI.
+
+Backend
+
+Framework: NestJS 10 (TypeScript)
+
+ORM/DB: Prisma + PostgreSQL 15 (pgvector enabled)
+
+Search: Postgres full-text (tsvector) + vector similarity (pgvector)
+
+Cache & Queue: Redis (cache + BullMQ for jobs)
+
+Events Bus: NATS (lightweight, easy ops) — Kafka optional later
+
+AI Gateway: Provider-agnostic adapters (OpenAI first; pluggable to others)
+
+Auth & Tenancy: Auth0 (JWT), Postgres RLS for tenant isolation
+
+Docs/Contracts: OpenAPI (Swagger) + Pact (consumer contracts)
+
+Observability: OpenTelemetry traces, Prometheus metrics, Loki JSON logs
+
+Testing: Jest (unit/integration with Testcontainers), k6 (load)
+
+Infra (prod): Terraform (VPC, RDS Postgres, Elasticache, S3, NAT, CloudFront), GitHub Actions CI/CD
+
+Why this BE stack?
+
+Velocity + Structure: NestJS modular boundaries fit our “modular monolith” plan; Prisma accelerates schema & migrations safely.
+
+Quality Matching: pgvector keeps vectors next to relational data (joins, ACID, RLS).
+
+Operational Simplicity: NATS + Redis + BullMQ are easy to run; scale later if needed.
+
+Auditability: OpenAPI + Pact + OTEL deliver traceable, contract-driven services.
+
+Implementation Order (What first, then next)
+
+Golden rule: unblock data-in → data-through → value-out (recommendations) quickly; then harden.
+
+Week 0–2 — Foundations
+
+Monorepo (pnpm + Turborepo), CI lint/test/build, Docker Compose (Postgres + Redis + Mailhog).
+
+Postgres with pgvector, Prisma schema v1 (Tenant, User, Consultant, Requirement, Submission, Embedding, AuditLog).
+
+NestJS app skeleton (Auth, RBAC, Consultants, Requirements modules), RLS scaffolding.
+
+Next.js app shell (layout, theme, tokens), shadcn/ui baseline, auth wiring (Auth0).
+
+Week 3–4 — CRUD + Search (usable app)
+
+FE pages for Consultants/Requirements (list/detail/create/edit), server components + Query.
+
+BE CRUD with validation, pagination, tsvector search.
+
+Audit logging, seed data, basic analytics counters.
+
+E2E happy path (Playwright): login → create consultant → create requirement.
+
+Week 5–6 — Embeddings + Matching v1
+
+AI Gateway (embeddings + chat); embedding jobs (BullMQ).
+
+Matching API: hybrid (rules + cosine) with factor weights & explanation JSON.
+
+FE “Get Recommendations” on requirement detail; factor chips UI.
+
+Initial metrics (Prometheus), traces across API → worker.
+
+Week 7–8 — MVP polish & Observability
+
+Email ingestion (IMAP/Gmail forward) → Requirement parser → normalizer → embeddings.
+
+Dashboard v1: pipeline stats, top skills, basic win-rate.
+
+Load test > 50 RPS read, p95 targets; A11y pass on top pages.
+
+Blue/Green deploy to staging; feature flags.
+
+Week 9–12 — Multi-tenant & SSO, Explainability v2
+
+RLS enforcement + test harness; role matrix; SCIM optional.
+
+Explainable scores: per-factor contributions stored; human-in-the-loop approve workflow.
+
+Submissions module (status flow) + timeline Activities.
+
+Contract tests (Pact) for FE/BE; k6 search/recommend scenarios.
+
+Week 13–16 — Analytics v1 + Hardening
+
+KPI API (fill time, top-5 hit rate, calibration draft).
+
+Alerts/notifications (email/Slack) via workers.
+
+Security gates (SAST/DAST), secrets manager, backup/restore drill.
+
+DR runbook, chaos day, cost dashboards.
+
+Week 17–24 — ML Offline + Calibration + Integrations
+
+Python training jobs (logreg + XGBoost + LTR), model registry, drift & calibration (isotonic).
+
+Shadow predictions vs baseline; promote after A/B.
+
+Integrations v1 (job board/ATS adapter framework).
+
+Warehouse (optional): CDC → S3 → DuckDB/BigQuery + dbt.
+
+Detailed Timeline (Week-by-Week)
+
+R0 — Foundations
+
+W0: Repo bootstrap, Turborepo/pnpm, CI (ESLint, Prettier, TypeCheck), Docker Compose.
+
+W1: DB up (Postgres + pgvector), Prisma models + migrations; NestJS skeleton; Next.js shell; Auth0 dev tenant.
+
+W2: RLS scaffolding & tenancy headers; seed scripts; OTEL + Prometheus/Loki baseline; Playwright scaffold.
+
+R1 — MVP
+
+W3: Consultants/Requirements BE CRUD + OpenAPI; FE list/detail; Zod validations; table filters.
+
+W4: tsvector search + indexes; optimistic mutations; audit logs UI; first E2E suite green.
+
+W5: AI Gateway (embeddings); job pipeline (BullMQ); Embedding table + backfills.
+
+W6: Matching v1 (hybrid) + explain JSON; FE “Recommend” w/ factor chips; metrics panels.
+
+W7: Email ingestion alpha (IMAP/Gmail); normalizer + skill extraction (LLM JSON schema).
+
+W8: Dashboard v1; a11y audit; k6 baseline; stage deploy; smoke tests; MVP sign-off.
+
+R2 — Enterprise Basics
+
+W9: RLS enforcement + unit/integration tests; role matrix + policy guards.
+
+W10: Submissions module (API + FE), status transitions, activity log.
+
+W11: Explainability v2 (stored factors, reason strings), approve/override UI.
+
+W12: SSO polish (Auth0 rules/hooks), SCIM draft, contract tests, load goals.
+
+R3 — Scale, ML & Integrations
+
+W13: KPI/analytics endpoints; Grafana dashboards; cost/tokens panels.
+
+W14: Security scans; DLP/PII tagging; secrets manager; backup/restore drill.
+
+W15: Notifications (email/Slack) w/ rate limits; failure retries; runbooks.
+
+W16: Hardening sprint; perf tuning; error budgets; prod readiness review.
+
+W17–18: Offline training pipeline (Python), feature snapshots, CV splits.
+
+W19–20: Calibration (isotonic/Platt), shadow deploy, monitoring drift.
+
+W21–22: Promote calibrated model; A/B; LTR for top-K.
+
+W23–24: Integrations v1 (ATS/boards), warehouse/dbt optional; GA launch.
+
+Route & Endpoint Map (No Broken Links)
+Frontend URLs (all pages implemented)
+
+/ → Redirect to /dashboard
+
+/dashboard → Analytics cards, trends, pipeline stats
+
+/consultants → List + filters
+
+/consultants/new → Create form
+
+/consultants/[id] → Detail (profile, skills, activity)
+
+/requirements → List + filters
+
+/requirements/new → Create form
+
+/requirements/[id] → Detail + “Get Recommendations”
+
+/matches → Human-in-the-loop review queue
+
+/submissions → List & status
+
+/submissions/[id] → Detail timeline
+
+/ai-chat → Conversational UI over CRM
+
+/audit → Audit trails & exports
+
+/settings → Tenant, roles, API keys, webhooks
+
+Each route ships with a matching page component and loader/actions; all links above must be present in the app nav and smoke-tested.
+
+Backend (REST, versioned under /v1)
+
+GET /v1/consultants (q, page, sort)
+
+POST /v1/consultants
+
+GET /v1/consultants/:id
+
+PATCH /v1/consultants/:id
+
+DELETE /v1/consultants/:id
+
+GET /v1/consultants/analytics/overview
+
+GET /v1/requirements
+
+POST /v1/requirements
+
+GET /v1/requirements/:id
+
+PATCH /v1/requirements/:id
+
+DELETE /v1/requirements/:id
+
+GET /v1/requirements/:id/recommendations (topK, explain)
+
+POST /v1/requirements/:id/submit (consultantId)
+
+POST /v1/integrations/inbox/import (email payload/IMAP ref)
+
+POST /v1/ai/extract (schema_name, text)
+
+POST /v1/ai/embeddings
+
+POST /v1/ai/match-score
+
+GET /v1/ai/analytics/:tenantId
+
+GET /v1/audit/logs (filters, export)
+
+GET /v1/analytics/kpis (dashboard aggregates)
+
+OpenAPI served at /v1/docs and /v1/docs-json. Contract tests ensure FE calls only defined endpoints.
+
+Environments & Links (for local/stage/prod)
+
+Local (Docker Compose):
+
+Web: http://localhost:3000
+
+API: http://localhost:4000
+
+API Docs: http://localhost:4000/v1/docs
+
+Mailhog: http://localhost:8025
+
+Postgres: localhost:5432
+
+Redis: localhost:6379
+
+Staging/Prod: use WEB_BASE_URL and API_BASE_URL; FE fetches from NEXT_PUBLIC_API_URL so no hard-coded hostnames. Health checks: /healthz (API), /api/healthz (FE).
+
+Build Prompts (copy/paste to kick teams off)
+Repo bootstrap (DevOps)
+
+“Create a Turborepo with apps/web (Next.js 14) and apps/api (NestJS 10). Add shared packages/ui (shadcn components), packages/config (eslint, tsconfig). Configure pnpm workspaces, GitHub Actions for lint/test/build, and Docker Compose for Postgres (with pgvector), Redis, and Mailhog.”
+
+Database & RLS (Backend)
+
+“Implement Prisma models for Tenant, User, Role, Consultant, Requirement, Submission, Embedding, AuditLog. Add migrations enabling CREATE EXTENSION IF NOT EXISTS vector;. Add RLS policies keyed by tenant_id and a request-scoped SET app.tenant_id='…' in a NestJS middleware. Provide seed and factory scripts.”
+
+Matching & Embeddings (Backend)
+
+“Add AI Gateway with adapters for embeddings and chat. Implement BullMQ jobs for embedding upserts and backfills. Create POST /v1/requirements/:id/recommendations that returns topK with factor contributions and reasons.”
+
+UI System (Frontend)
+
+“Install Tailwind + shadcn/ui; create design tokens (spacing/typography/colors) and a theme switcher. Implement a 3-pane layout, Command-K palette, and skeleton loaders. Build list/detail pages for Consultants and Requirements using TanStack Query, Table, and RHF+Zod.”
+
+Email Ingestion (Workers)
+
+“Implement IMAP/Gmail ingestion job that converts emails → Requirement DTO, runs LLM JSON-schema extraction, normalizes skills via taxonomy, stores embeddings, and emits a RequirementImported event on NATS.”
+
+Observability (Platform)
+
+“Wire OpenTelemetry across API and workers, Prometheus metrics (RED), Loki structured logs, Grafana dashboards for latency (p95), queue depth, token usage, and vector index size. Add /healthz and readiness endpoints.”
+
+Acceptance Gates per Milestone (short)
+
+MVP (W8): All FE routes implemented; CRUD + search; recommendations v1; E2E happy path; docs at /v1/docs; A11y basic pass; p95 browse ≤ 300ms, search ≤ 600ms.
+
+R2 (W12): RLS enforced; SSO; explainability stored; submissions flow; k6 targets met; contract tests pass.
+
+R3 (W24): Calibrated probabilities live; alerts; at least one external integration; DR drill complete; SOC2-friendly controls in place.

@@ -1,799 +1,778 @@
-# BenchCRM — Refined Enterprise Project Plan (v2)
+# BenchCRM — AI-Powered Bench Sales CRM (v4)
 
-**AI‑Powered Bench Sales CRM**
+**Smart Consultant Matching Platform**
 **Owner:** Balaji Koneti
-**Target team:** 20 senior engineers (avg 20+ YOE)
-**Delivery model:** 3 releases over \~24 weeks (see Roadmap)
+**Team:** 20 senior engineers (avg 20+ YOE)
+**Delivery model:** MVP-first with enterprise scaling path
 
 ---
 
 ## 0) Executive Summary
 
-BenchCRM is an AI‑first CRM tailored for bench sales operations: importing job reqs, enriching consultant profiles, matching intelligently, and driving outcomes with explainable predictions. This document upgrades your original plan to an enterprise‑grade blueprint across architecture, security, data, ML, UX, SRE, and delivery. It assumes a highly experienced team and optimizes for **robustness, maintainability, and beauty**.
+BenchCRM is an **AI-powered CRM** that transforms bench sales operations through intelligent consultant matching, automated requirement processing, and explainable recommendations. This plan delivers a **production-ready MVP in 12 weeks** using a modular monolith architecture that can scale to microservices when needed.
 
-**Primary goals:**
+**Core Value Proposition**
 
-* **Speed to value:** ship a delightful MVP in 8 weeks that already beats manual matching.
-* **Trustworthy AI:** explainable scoring, auditability, human‑in‑the‑loop review.
-* **Enterprise‑ready:** multi‑tenancy, SSO, RBAC, PII/PHI safe handling, observability, SLOs.
-* **Scale:** thousands of consultants & reqs, millions of events, predictable costs.
+* **Intelligent Matching:** AI-powered consultant-to-requirement matching with explainable scoring
+* **Automated Processing:** Email ingestion, resume parsing, and requirement extraction
+* **Enterprise Ready:** Multi-tenant, SSO, RBAC, audit trails, and compliance features
+* **Scalable Foundation:** Modular architecture that grows with your business
 
-**Key product themes:**
+**Key Outcomes**
 
-* Natural‑language command bar + conversational AI over your CRM data.
-* Smart ingestion from emails/ATS/job boards with dedupe, normalization, and skill taxonomy.
-* Matching that blends embeddings (semantic) + features (rules, history) + calibrated ML.
-* Beautiful, accessible, responsive UI with motion that respects performance budgets.
-
----
-
-## 1) What Changes vs. Original Plan (Delta)
-
-1. **Multi‑tenancy & RBAC (Enterprise‑grade):** tenant\_id on all domain rows + Postgres RLS policies; role‑based and resource‑scoped permissions.
-2. **Identity & SSO:** OAuth/OIDC (Auth0/Keycloak/Entra) with MFA, SCIM provisioning, and service tokens for integrations.
-3. **AI Gateway (Provider‑agnostic):** an internal adapter layer for LLMs/embedding providers with routing, retries, cost caps, and structured outputs.
-4. **Explainable Matching:** expose factor contributions (skills/geo/rate/history) and a reason string; add human approval steps.
-5. **Offline ML Pipeline:** Python training jobs, model registry, drift checks, calibration (Platt/Isotonic), and A/B evaluation.
-6. **Event‑Driven Backbone:** all writes emit domain events -> analytics, notifications, search updates; idempotent consumers.
-7. **Observability & SRE:** SLOs (p95 latencies), RED/USE dashboards, error budgets, runbooks, on‑call.
-8. **Data Governance:** PII tagging, field‑level encryption, retention schedules, access logs, DSR workflows (GDPR/CCPA‑style).
-9. **Cost & Performance:** caching tiers (Redis), background jobs (BullMQ), vector index compaction, batched inference, rate limiting.
-10. **Design System:** consistent tokens, components (shadcn/ui), motion guidelines, a11y AA+.
-11. **Quality Gates:** contract tests, e2e (Playwright), load tests (k6), security scans (SAST/DAST), schema drift checks.
-12. **Integration Layer:** inbox/IMAP parsers for job reqs, adapter framework for job boards/ATS/CRM (pluggable, rate‑limited).
+* **Faster Placements:** Reduce time-to-match from days to minutes
+* **Higher Success Rates:** AI-driven recommendations with 70%+ accuracy
+* **Operational Efficiency:** 50% reduction in manual matching time
+* **Data-Driven Insights:** Analytics and reporting for better decision making
 
 ---
 
-## 2) Non‑Functional Requirements (NFRs)
+## 1) Tech Stack (MVP-First, Enterprise-Ready)
 
-* **Availability:** 99.9% (monthly) for core read paths; 99.5% for heavy analytics.
-* **Latency targets (p95):** List views ≤ 300ms; search ≤ 600ms; recommendations ≤ 1.2s.
-* **Throughput:** 50 RPS steady, burst 200 RPS; queue absorbs spikes.
-* **Data durability:** PITR backups (≤15‑min RPO), 99.999% object storage durability.
-* **Security:** OWASP ASVS L2, CIS Benchmarks for infra, SOC2‑ready controls.
-* **Accessibility:** WCAG 2.2 AA.
-* **Internationalization:** i18n‑ready (en‑US first), number/date/locale formatting.
+### Frontend Stack
+* **Next.js 14** (App Router, React 18, TypeScript) — Modern React with server components
+* **Tailwind CSS + shadcn/ui** — Rapid UI development with accessibility built-in
+* **TanStack Query** — Server state management and caching
+* **React Hook Form + Zod** — Type-safe forms with validation
+* **Framer Motion** — Subtle animations and micro-interactions
+* **Auth0** — Enterprise SSO and authentication
+* **Testing:** Playwright (e2e), Vitest + Testing Library (unit)
 
----
+### Backend Stack
+* **NestJS 10** (TypeScript) — Modular, scalable Node.js framework
+* **PostgreSQL 15 + pgvector** — Relational DB with vector search capabilities
+* **Redis** — Caching and background job queues
+* **Prisma** — Type-safe database ORM with migrations
+* **BullMQ** — Background job processing
+* **OpenAI API** — LLM for text extraction and embeddings
+* **AWS S3** — File storage for resumes and documents
 
-## 3) High‑Level Architecture
+### Infrastructure & DevOps
+* **Docker** — Containerization for consistent deployments
+* **AWS** — Cloud infrastructure (RDS, ElastiCache, S3, CloudFront)
+* **GitHub Actions** — CI/CD pipeline
+* **Terraform** — Infrastructure as Code
+* **Sentry** — Error monitoring and performance tracking
 
-```
-┌───────────── Web (Next.js) ─────────────┐
-│  App Router | shadcn/ui | Framer Motion │
-│  Graph‑ish data hooks over REST         │
-└──────────────▲───────────┬──────────────┘
-               │ REST/WS   │ SSE
-        ┌──────┴───────────▼──────┐
-        │  API (NestJS) Modular   │
-        │  - Auth/RBAC            │
-        │  - Consultants          │
-        │  - Requirements         │
-        │  - Matching/AI Gateway  │
-        │  - Search/Embeddings    │
-        │  - Activities/Email     │
-        │  - Analytics            │
-        └───▲───────────┬─────────┘
-            │           │ emits Domain Events
-            │           ▼
-      ┌─────┴─────┐   ┌───────────┐
-      │ Redis     │   │ NATS/Kafka│  <- async comms
-      │ (Cache/Q) │   │  (Bus)    │
-      └─────▲─────┘   └────▲──────┘
-            │              │
-     ┌──────┴──────┐  ┌────┴───────────┐
-     │ Workers     │  │ AI Gateway     │
-     │ BullMQ jobs │  │ (LLMs/Embed)   │
-     │ - Ingestion │  │ - Routing       │
-     │ - Embedding │  │ - Guardrails    │
-     │ - Training  │  │ - Telemetry     │
-     └──────▲──────┘  └────▲───────────┘
-            │              │
-  ┌─────────┴──────────┐   │
-  │ PostgreSQL (+RLS)  │   │
-  │  + pgvector        │   │
-  │  + audit & CDC     │   │
-  └─────────▲──────────┘   │
-            │              │
-      ┌─────┴─────┐   ┌────┴───────┐
-      │ Object    │   │ Vector DB* │ (*optional: Qdrant/Weaviate)
-      │ Storage S3│   └────────────┘
-      └───────────┘
-```
-
-**Style:** start as a **modular monolith** (clear module boundaries) with an event bus; split into microservices only when scaling dictates.
+### Why This Stack?
+* **Fast Development:** Proven technologies with excellent DX
+* **Cost Effective:** Managed services reduce operational overhead
+* **Scalable:** Can handle growth from startup to enterprise
+* **Maintainable:** Clear separation of concerns and modular architecture
 
 ---
 
-## 4) Tenancy, Auth, RBAC
+## 2) Architecture Overview (Modular Monolith)
 
-* **Tenancy model:** single DB, **tenant\_id** on every row; **Postgres RLS** enforces isolation.
-* **RBAC:** roles (Owner, Admin, Recruiter, Sales, Analyst, ReadOnly) + fine‑grained permissions (resource, action, scope).
-* **Sessions & API:** OAuth/OIDC login; short‑lived JWT access tokens + refresh; service accounts for integrations.
-* **Audit trails:** all data mutations & AI recommendations recorded with actor, hash, model version, prompt fingerprint.
+**Single Application with Clear Module Boundaries**
 
-**Sample RLS (sketch):**
+The application is structured as a modular monolith with distinct domain modules that can be extracted into microservices when needed. Each module has its own database schema, business logic, and API endpoints.
+
+### Core Modules
+
+1. **Authentication Module**
+   * User management, SSO integration (Auth0)
+   * Role-based access control (RBAC)
+   * Session management and security
+
+2. **Tenant Management Module**
+   * Multi-tenant data isolation
+   * Tenant configuration and settings
+   * Usage tracking and billing
+
+3. **Consultant Module**
+   * Consultant profiles and skills
+   * Resume parsing and storage
+   * Availability and rate management
+
+4. **Requirement Module**
+   * Job requirements and specifications
+   * Email ingestion and parsing
+   * Requirement categorization
+
+5. **Matching Module**
+   * AI-powered matching algorithms
+   * Explainable scoring and recommendations
+   * Match history and feedback
+
+6. **Submission Module**
+   * Submission workflows
+   * Interview scheduling
+   * Placement tracking
+
+7. **Analytics Module**
+   * Performance metrics and KPIs
+   * Reporting and dashboards
+   * Data export capabilities
+
+8. **AI Gateway Module**
+   * LLM integration and management
+   * Text extraction and embeddings
+   * Cost monitoring and optimization
+
+### Database Design
+* **Single PostgreSQL instance** with schema separation
+* **Row-level security (RLS)** for multi-tenant isolation
+* **pgvector extension** for semantic search
+* **Audit tables** for compliance and tracking
+
+---
+
+## 3) Database Schema & Data Model
+
+### Core Entities
 
 ```sql
-ALTER TABLE consultant ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON consultant
-  USING (tenant_id = current_setting('app.tenant_id')::uuid);
+-- Multi-tenant foundation
+CREATE TABLE tenants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  settings JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Users and authentication
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  auth0_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Consultants
+CREATE TABLE consultants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  location VARCHAR(255),
+  rate DECIMAL(10,2),
+  skills JSONB,
+  resume_url TEXT,
+  availability_date DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Requirements
+CREATE TABLE requirements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  company VARCHAR(255),
+  location VARCHAR(255),
+  budget DECIMAL(10,2),
+  skills JSONB,
+  remote_ok BOOLEAN DEFAULT false,
+  start_date DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Embeddings for AI matching
+CREATE TABLE embeddings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  entity_type VARCHAR(50) NOT NULL, -- 'consultant' or 'requirement'
+  entity_id UUID NOT NULL,
+  vector VECTOR(1536), -- OpenAI embedding dimension
+  model VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Submissions and placements
+CREATE TABLE submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  consultant_id UUID REFERENCES consultants(id),
+  requirement_id UUID REFERENCES requirements(id),
+  match_score DECIMAL(3,2),
+  status VARCHAR(50) DEFAULT 'draft',
+  submitted_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Audit trail
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  user_id UUID REFERENCES users(id),
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(50),
+  entity_id UUID,
+  changes JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Row-Level Security (RLS)
+
+```sql
+-- Enable RLS on all tenant-scoped tables
+ALTER TABLE consultants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requirements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for tenant isolation
+CREATE POLICY tenant_isolation ON consultants
+  FOR ALL TO authenticated
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+CREATE POLICY tenant_isolation ON requirements
+  FOR ALL TO authenticated
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
 
 ---
 
-## 5) Domain Model (Core Entities)
+## 4) API Design & Endpoints
 
-* **Tenant, User, Role, Permission, AuditLog**
-* **Consultant, Skill, ConsultantSkill, Availability, RateCard**
-* **Company, Contact, Requirement, RequirementSkill**
-* **Submission, Interview, Offer, Placement**
-* **Activity (email/call/note), Attachment, Tag**
-* **Embedding (entity\_type, entity\_id, vector, model, dims)**
-* **Recommendation (inputs, scores, reasons, model\_version)**
-* **MatchRun (batch context), FeatureSnapshot (for explainability)**
-* **IntegrationAccount (provider, creds), ImportJob, WebhookEvent**
+### REST API Structure
+* **Base URL:** `/api/v1`
+* **Authentication:** JWT tokens via Auth0
+* **Rate Limiting:** Per-tenant limits with Redis
+* **Documentation:** OpenAPI/Swagger at `/api/docs`
 
-**Data integrity:** composite unique keys for dedupe (e.g., \[tenant\_id, external\_id]).
+### Core Endpoints
 
----
+```typescript
+// Consultants
+GET    /api/v1/consultants              // List consultants
+POST   /api/v1/consultants              // Create consultant
+GET    /api/v1/consultants/:id          // Get consultant details
+PATCH  /api/v1/consultants/:id          // Update consultant
+DELETE /api/v1/consultants/:id          // Delete consultant
+POST   /api/v1/consultants/:id/upload   // Upload resume
 
-## 6) Data & Search
+// Requirements
+GET    /api/v1/requirements             // List requirements
+POST   /api/v1/requirements             // Create requirement
+GET    /api/v1/requirements/:id         // Get requirement details
+PATCH  /api/v1/requirements/:id         // Update requirement
+DELETE /api/v1/requirements/:id         // Delete requirement
 
-* **Relational store:** Postgres 15+ with **pgvector**; JSONB for schemaless enrichments.
-* **Search index:** hybrid — SQL filters + vector similarity + BM25 text (tsvector) for speed/quality.
-* **ETL pipeline:** inbox → parser → normalizer → skill extractor → embedding generator → upsert.
-* **PII tagging:** columns classified; secrets encrypted at rest; masked in logs.
+// AI Matching
+POST   /api/v1/requirements/:id/match   // Get AI recommendations
+GET    /api/v1/requirements/:id/match   // Get match history
+POST   /api/v1/ai/extract               // Extract data from text
+POST   /api/v1/ai/embed                 // Generate embeddings
 
----
+// Submissions
+GET    /api/v1/submissions              // List submissions
+POST   /api/v1/submissions              // Create submission
+PATCH  /api/v1/submissions/:id          // Update submission status
+GET    /api/v1/submissions/:id/timeline // Get submission timeline
 
-## 7) AI/ML System
+// Analytics
+GET    /api/v1/analytics/dashboard      // Dashboard metrics
+GET    /api/v1/analytics/reports        // Generate reports
+GET    /api/v1/analytics/export         // Export data
 
-### 7.1 Components
-
-* **AI Gateway:** adapters for LLM chat, extraction, embeddings; timeouts, retries, token accounting, structured output via JSON schema.
-* **Feature Store (lightweight):** compute & persist features per (consultant, requirement) pair for reuse & explainability.
-* **Models:**
-
-  * **Baseline:** logistic regression (fast, explainable).
-  * **Boosted Trees:** XGBoost/LightGBM for non‑linear interactions.
-  * **Ranking:** Learning‑to‑Rank (LambdaMART) for top‑K suggestions.
-* **Calibration:** isotonic/Platt → **successProbability** that is well‑calibrated.
-* **Evaluation:** AUC, PR‑AUC, Brier, MRR\@K, Recall\@K; offline CV + shadow online.
-* **Monitoring:** prediction drift (PSI), data quality checks, win‑rate over time; alert on degradation.
-
-### 7.2 Matching v2 (Explainable)
-
-**Score = 0.40·Skills + 0.20·Location + 0.15·RateFitness + 0.10·Seniority + 0.10·History + 0.05·Availability**
-
-* **Skills:** weighted Jaccard of normalized skill taxonomy + embedding cosine for semantic alignment.
-* **Location:** geo distance (haversine) or time zone compatibility for remote.
-* **RateFitness:** sigmoid of (budget − rate)/budget; penalize large gaps.
-* **Seniority:** years vs required; penalize under/over by band.
-* **History:** consultant/company success rates, recency boosts.
-* **Availability:** next‑available date vs start window.
-
-**Output:** `{matchScore: 0..1, successProbability: 0..1, reasons: ["Skill overlap 86%", "Within budget"], factors: {...}}`.
-
-### 7.3 Structured Extraction (Requirements/Resumes)
-
-* Prompt LLM with JSON Schema to extract: title, skills\[], years, location, work auth, rate, seniority, domains, remote\_ok, notes.
-* Reject/repair with deterministic validators; retry with few‑shot examples.
-
----
-
-## 8) APIs
-
-* **Style:** REST v1 with OpenAPI; pagination (cursor), idempotency keys, ETags; **webhooks** for events.
-* **Security:** JWT (aud, iss) checked; per‑tenant rate limits (sliding window).
-* **Notable endpoints (additions):**
-
-  * `POST /v1/integrations/inbox/import` (IMAP/forwarded email → Requirement)
-  * `POST /v1/requirements/:id/recommendations?topK=10&explain=true`
-  * `POST /v1/ai/extract` (schema\_name, text) → structured JSON
-  * `GET /v1/audit/logs` (filters)
-  * `GET /v1/analytics/kpis` (tenant dashboard aggregates)
-
-**OpenAPI sketch:**
-
-```yaml
-openapi: 3.1.0
-info: {title: BenchCRM API, version: 1.0.0}
-paths:
-  /v1/requirements/{id}/recommendations:
-    post:
-      parameters:
-        - in: path
-          name: id
-          schema: {type: string, format: uuid}
-        - in: query
-          name: topK
-          schema: {type: integer, default: 5, minimum: 1, maximum: 50}
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                explain: {type: boolean, default: true}
-      responses:
-        '200': {description: Recommendations returned}
+// Email Integration
+POST   /api/v1/email/ingest             // Process incoming emails
+GET    /api/v1/email/status             // Check processing status
 ```
 
 ---
 
-## 9) Frontend (Beautiful by Design)
+## 5) Frontend Application Structure
 
-**Principles:** clarity > cleverness, speed > flourish, accessible by default.
+### Page Routes
+```
+/                           → Dashboard (redirect)
+/dashboard                  → Analytics dashboard
+/consultants                → Consultant list
+/consultants/new            → Add new consultant
+/consultants/[id]           → Consultant details
+/consultants/[id]/edit      → Edit consultant
+/requirements               → Requirements list
+/requirements/new           → Add new requirement
+/requirements/[id]          → Requirement details
+/requirements/[id]/edit     → Edit requirement
+/requirements/[id]/match    → AI matching results
+/submissions                → Submissions list
+/submissions/[id]           → Submission details
+/analytics                  → Reports and insights
+/settings                   → Tenant settings
+/profile                    → User profile
+```
 
-* **Design System:** tokens (spacing/typography/colors), shadcn/ui + Tailwind; dark/light themes; motion using Framer with 150–250ms durations.
-* **Layout:** 3‑pane (filters | list | detail) on desktop; single‑column with sticky actions on mobile.
-* **Key screens:** Dashboard, Consultants, Requirements, Matches (HITL review), Submissions, Analytics, AI Chat, Audit.
-* **Patterns:**
-
-  * Command‑K for quick actions / natural queries.
-  * Explainers: inline chips showing factor contributions; hover reveals details.
-  * Empty‑state coaching with sample prompts.
-  * Batch actions with optimistic UI; toasts for background jobs.
-* **Performance budgets:** JS ≤ 220KB gz initial, TTI ≤ 2.5s on mid‑range laptop, avoid layout thrash.
-* **Accessibility:** focus rings, keyboard nav, ARIA labels, color contrast AA+.
-
----
-
-## 10) DevOps, Environments, IaC
-
-* **Envs:** local → dev → staging → prod; feature flags per env.
-* **CI/CD:** lint/typecheck/tests → build → vuln scan → migration dry‑run → deploy (blue/green) → smoke tests.
-* **IaC:** Terraform for VPC, Postgres, Redis, S3, NAT, secrets manager, CDN; GitOps for app deploys.
-* **Secrets:** external secrets operator/SM; no secrets in env files for prod.
-* **Backups:** daily full + WAL; quarterly DR test; RPO 15m, RTO 2h.
-* **Runbooks:** incident templates, rollback steps, rate‑limit escalation, hotfix policy.
-
----
-
-## 11) Observability & SRE
-
-* **Metrics:** RED (Rate/Errors/Duration), DB saturation, queue depth, token usage, vector index size.
-* **Tracing:** distributed traces API→worker→external.
-* **Logging:** structured JSON, PII‑safe, correlation IDs.
-* **SLOs:** defined in §2; error budget governance with blameless postmortems.
+### Key UI Components
+* **Command Palette** (Cmd+K) — Quick actions and search
+* **Data Tables** — Sortable, filterable lists with pagination
+* **AI Chat Interface** — Natural language queries
+* **Match Explanation** — Visual breakdown of AI scoring
+* **File Upload** — Drag-and-drop resume processing
+* **Real-time Notifications** — WebSocket updates
+* **Responsive Design** — Mobile-first approach
 
 ---
 
-## 12) Quality Engineering
+## 6) AI/ML System Design
 
-* **Unit tests:** >70% critical modules; factories, seed data.
-* **Integration tests:** Prisma + test containers; contract tests (Pact) for API consumers.
-* **E2E:** Playwright flows for CRUD, matching, submissions, chat.
-* **Load:** k6 scenarios for search and recommend.
-* **Security:** SAST (dependency & code), DAST (ZAP), secrets scan, SBOM.
-* **Data tests:** Great Expectations (or SQL checks) for ETL sanity.
+### Core AI Capabilities
 
----
+#### 1. Text Extraction & Processing
+* **Resume Parsing:** Extract skills, experience, education from PDFs
+* **Requirement Processing:** Parse job descriptions from emails
+* **Structured Output:** JSON schema validation with retry logic
+* **PII Protection:** Automatic redaction of sensitive information
 
-## 13) Security & Compliance
-
-* **PII:** classify fields; encrypt at rest (KMS) & in transit; field‑level encryption for sensitive docs.
-* **Access:** least privilege IAM; admin actions require re‑auth; session/device management.
-* **Compliance posture:** SOC2‑friendly controls, DPIA template, DSR (export/delete) tooling, audit exports.
-* **AI safety:** prompt/response logging with redaction; model version pinning; jailbreak/PII output filters.
-
----
-
-## 14) Roadmap & Team Plan (20 Sr Engineers)
-
-**Squads (5 engineers each):**
-
-1. **Web UX** (Lead FE, FE x3, UX Eng): design system, pages, a11y, Command‑K, chat UI.
-2. **Core API** (Staff BE, BE x3, QA Eng): domain modules, RBAC, audit, webhooks.
-3. **Data/ML** (Staff MLE, MLE x2, DE, QA Eng): extraction, embeddings, features, models, eval.
-4. **Platform/SRE** (Staff Platform, SRE x2, BE, Sec Eng): CI/CD, IaC, observability, security.
-
-**Milestones:**
-
-* **R0 (Weeks 0‑2):** Inception, designs, infra bootstrap, schema v1, auth skeleton, CI green.
-* **R1 (Weeks 3‑8) MVP:** Consultants/Requirements CRUD, email ingestion alpha, embeddings, baseline matching, dashboard v1, observability.
-* **R2 (Weeks 9‑16):** Explainable recommendations, submissions pipeline, analytics v1, multi‑tenant RLS, SSO, audits, load test ≥ 50 RPS.
-* **R3 (Weeks 17‑24):** Offline training + calibrated probabilities, alerts/notifications, integrations v1, DR drill, a11y AA, hardening.
-
-**Definition of Done (per feature):** UX spec + API schema approved → tests green → a11y checks → perf budget met → docs/runbook updated → tracked behind a flag → staged sign‑off.
-
----
-
-## 15) KPIs & Success Metrics
-
-* **Time‑to‑first recommendation:** ≤ 5 min after import.
-* **Top‑5 hit rate:** ≥ 65% (a chosen consultant in top‑5).
-* **Calibration:** Brier score ≤ 0.16 on successProbability.
-* **Manual time saved:** ≥ 50% for recruiters by month 3.
-* **System health:** SLO adherence ≥ 99% periods.
-
----
-
-## 16) Risk Register (Sample)
-
-| Risk                              | Impact        | Likelihood | Mitigation                                                |
-| --------------------------------- | ------------- | ---------- | --------------------------------------------------------- |
-| LLM cost spikes                   | \$\$          | Med        | Caching, batch, token caps, cheaper fallback routes       |
-| Data quality (dirty resumes/reqs) | Match quality | High       | Validators, human review, schema‑first extraction         |
-| Tenant data leakage               | Critical      | Low        | RLS, integration tests, audits, pen test                  |
-| Vendor lock‑in                    | Med           | Med        | AI Gateway abstraction, export tools                      |
-| Scaling pgvector                  | Perf          | Med        | HNSW index tuning, IVF, or external vector DB when needed |
-
----
-
-## 17) Example Schemas & Code Sketches
-
-### 17.1 Prisma (extract)
-
-```prisma
-model Tenant { id String @id @default(uuid()); name String; createdAt DateTime @default(now()) }
-model User   { id String @id @default(uuid()); tenantId String; email String @unique; role String; /* ... */ }
-
-model Consultant {
-  id String @id @default(uuid())
-  tenantId String
-  name String
-  location String?
-  rate   Decimal?
-  skills Json? // normalized taxonomy list
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([tenantId])
-}
-
-model Requirement {
-  id String @id @default(uuid())
-  tenantId String
-  title String
-  description String
-  skills Json?
-  budget Decimal?
-  remoteOk Boolean @default(true)
-  embeddings   Float[] @db.Vector(768)
-  aiComplexity Float?
-  createdAt DateTime @default(now())
-  @@index([tenantId])
-  @@index([tenantId, aiComplexity])
-}
-
-model Submission {
-  id String @id @default(uuid())
-  tenantId String
-  consultantId String
-  requirementId String
-  matchScore Float
-  successProbability Float?
-  status String @default("draft")
-  createdAt DateTime @default(now())
-  @@unique([tenantId, consultantId, requirementId])
-}
-
-model Embedding {
-  id String @id @default(uuid())
-  tenantId String
-  entityType String // 'consultant' | 'requirement'
-  entityId String
-  model String
-  dims  Int
-  vector Float[] @db.Vector(768)
-  createdAt DateTime @default(now())
-  @@index([tenantId, entityType])
-}
-
-model AuditLog {
-  id String @id @default(uuid())
-  tenantId String
-  actorId String?
-  action  String
-  entity  String
-  entityId String
-  payload Json?
-  createdAt DateTime @default(now())
-  @@index([tenantId, entity, entityId])
+#### 2. Semantic Matching Engine
+```typescript
+interface MatchResult {
+  consultantId: string;
+  matchScore: number;        // 0-1 scale
+  successProbability: number; // Calibrated probability
+  factors: {
+    skills: number;          // Skill overlap (40% weight)
+    location: number;        // Geographic fit (20% weight)
+    rate: number;           // Budget alignment (15% weight)
+    seniority: number;      // Experience match (10% weight)
+    history: number;        // Past success (10% weight)
+    availability: number;   // Timeline fit (5% weight)
+  };
+  reasons: string[];        // Human-readable explanations
 }
 ```
 
-### 17.2 Matching Service (pseudo‑code)
+#### 3. Embedding Strategy
+* **OpenAI text-embedding-3-small** for cost efficiency
+* **Vector Storage:** PostgreSQL with pgvector extension
+* **Similarity Search:** Cosine similarity with HNSW indexing
+* **Batch Processing:** Background jobs for embedding generation
 
-```ts
-const score = weighted({
-  skills: jaccard(skillSet(req), skillSet(con)) * 0.7 + cosine(emb(req), emb(con)) * 0.3,
-  location: geoScore(req, con),
-  rateFitness: rateScore(req.budget, con.rate),
-  seniority: bandScore(req.years, con.years),
-  history: priorWinRate(con, req.company),
-  availability: availabilityScore(con, req.start)
-}, {0.40, 0.20, 0.15, 0.10, 0.10, 0.05});
-return explain(score, factors)
+#### 4. Matching Algorithm
+```typescript
+const calculateMatch = (consultant: Consultant, requirement: Requirement) => {
+  const skills = calculateSkillOverlap(consultant.skills, requirement.skills);
+  const location = calculateLocationFit(consultant.location, requirement.location);
+  const rate = calculateRateFitness(consultant.rate, requirement.budget);
+  const seniority = calculateSeniorityMatch(consultant.experience, requirement.experience);
+  const history = calculateHistoryScore(consultant.id, requirement.company);
+  const availability = calculateAvailabilityScore(consultant.availability, requirement.startDate);
+  
+  return {
+    score: (skills * 0.4) + (location * 0.2) + (rate * 0.15) + 
+           (seniority * 0.1) + (history * 0.1) + (availability * 0.05),
+    factors: { skills, location, rate, seniority, history, availability }
+  };
+};
 ```
 
-### 17.3 AI Gateway (interfaces)
+#### 5. Cost Management
+* **Token Budgets:** Per-tenant monthly limits
+* **Caching:** Redis cache for repeated embeddings
+* **Batch Processing:** Group similar requests
+* **Fallback Models:** Cheaper alternatives for non-critical tasks
 
-```ts
-interface ChatProvider { chat(messages, schema?) => {json, tokens, cost} }
-interface EmbedProvider { embed(texts, model?) => {vectors, tokens, cost} }
+---
+
+## 7) Security & Compliance
+
+### Authentication & Authorization
+* **SSO Integration:** Auth0 with SAML/OIDC support
+* **Multi-Factor Authentication:** Required for admin users
+* **Role-Based Access Control:** Granular permissions per module
+* **JWT Tokens:** Short-lived access tokens with refresh rotation
+* **Session Management:** Secure session handling with Redis
+
+### Data Protection
+* **Encryption at Rest:** Database and S3 encryption
+* **Encryption in Transit:** TLS 1.3 for all communications
+* **PII Handling:** Automatic detection and masking
+* **Row-Level Security:** Database-level tenant isolation
+* **Audit Logging:** Complete audit trail for compliance
+
+### Privacy & Compliance
+* **GDPR Compliance:** Data export and deletion capabilities
+* **SOC 2 Ready:** Security controls and monitoring
+* **Data Retention:** Configurable retention policies
+* **Access Controls:** Principle of least privilege
+* **Vulnerability Management:** Regular security scans and updates
+
+---
+
+## 8) Monitoring & Observability
+
+### Performance Targets
+* **Response Times (p95):** List views ≤ 300ms, Search ≤ 600ms, AI matching ≤ 1.2s
+* **Availability:** 99.9% uptime for core features
+* **Throughput:** 100 RPS sustained, 500 RPS burst capacity
+
+### Monitoring Stack
+* **Application Metrics:** Prometheus + Grafana dashboards
+* **Error Tracking:** Sentry for real-time error monitoring
+* **Logging:** Structured JSON logs with correlation IDs
+* **Uptime Monitoring:** Health checks and alerting
+* **Performance Monitoring:** APM for database and API performance
+
+### Key Metrics
+* **Business Metrics:** Match accuracy, placement success rate, time-to-fill
+* **Technical Metrics:** API response times, database performance, queue depth
+* **AI Metrics:** Token usage, embedding generation time, model accuracy
+* **User Metrics:** Active users, feature adoption, user satisfaction
+
+---
+
+## 9) Development & Testing Strategy
+
+### Testing Pyramid
+* **Unit Tests:** 80%+ coverage for business logic
+* **Integration Tests:** API endpoints and database operations
+* **E2E Tests:** Critical user journeys with Playwright
+* **Load Tests:** Performance testing with k6
+* **Security Tests:** SAST/DAST scanning and dependency audits
+
+### Development Workflow
+* **Git Flow:** Feature branches with pull request reviews
+* **CI/CD Pipeline:** Automated testing, building, and deployment
+* **Code Quality:** ESLint, Prettier, TypeScript strict mode
+* **Database Migrations:** Version-controlled schema changes
+* **Environment Management:** Local, staging, and production environments
+
+### Quality Gates
+* **Code Review:** Required for all changes
+* **Automated Tests:** Must pass before merge
+* **Security Scan:** Dependency and code vulnerability checks
+* **Performance Tests:** Load testing on staging
+* **Accessibility:** WCAG 2.1 AA compliance
+
+---
+
+## 10) Risk Management & Mitigation
+
+### Technical Risks
+* **AI Cost Overruns:** Token budgets, caching, batch processing, cost alerts
+* **Performance Degradation:** Database indexing, query optimization, caching strategies
+* **Data Quality Issues:** Validation rules, human review workflows, data cleansing
+* **Scalability Limits:** Horizontal scaling, database sharding, microservices migration path
+
+### Business Risks
+* **Market Adoption:** User feedback loops, feature iteration, competitive analysis
+* **Regulatory Compliance:** GDPR, SOC 2, data governance frameworks
+* **Vendor Dependencies:** Multi-provider AI strategy, data portability
+* **Team Scaling:** Knowledge documentation, code reviews, mentoring programs
+
+### Operational Risks
+* **Security Breaches:** Regular audits, penetration testing, incident response plans
+* **Data Loss:** Backup strategies, disaster recovery, data replication
+* **System Downtime:** High availability design, monitoring, alerting
+* **Team Turnover:** Documentation, knowledge sharing, cross-training
+
+---
+
+## 11) Project Structure
+
+```
+benchcrm/
+├── apps/
+│   ├── web/                      # Next.js frontend application
+│   └── api/                      # NestJS backend application
+├── packages/
+│   ├── ui/                       # Shared UI components (shadcn/ui)
+│   ├── database/                 # Prisma schema and migrations
+│   ├── types/                    # Shared TypeScript types
+│   └── config/                   # Shared configuration (ESLint, TypeScript)
+├── infrastructure/
+│   ├── terraform/                # Infrastructure as Code
+│   └── docker/                   # Docker configurations
+├── docs/                         # Documentation
+├── tests/
+│   ├── e2e/                      # Playwright end-to-end tests
+│   ├── integration/              # API integration tests
+│   └── load/                     # k6 performance tests
+└── scripts/                      # Build and deployment scripts
+```
+
+### Module Organization (Backend)
+```
+apps/api/src/
+├── modules/
+│   ├── auth/                     # Authentication & authorization
+│   ├── tenants/                  # Multi-tenant management
+│   ├── consultants/              # Consultant management
+│   ├── requirements/             # Job requirements
+│   ├── matching/                 # AI matching engine
+│   ├── submissions/              # Submission workflows
+│   ├── analytics/                # Reporting and metrics
+│   ├── ai/                       # AI gateway and processing
+│   └── common/                   # Shared utilities
+├── database/                     # Database configuration
+├── config/                       # Application configuration
+└── main.ts                       # Application entry point
 ```
 
 ---
 
-## 18) Integration Adapters (extensible)
+## 12) Development Timeline (12-Week MVP)
 
-* **Inbox/Email:** IMAP/Gmail API; parse threads → Requirements; dedupe by title+company+hash.
-* **Job boards/ATS:** adapter interface with rate limiting and job schema mapping.
-* **Calendars:** interviews scheduling; optional for R3.
-* **Webhooks:** outbound events for downstream BI/Slack/MS Teams.
+### Phase 1: Foundation (Weeks 1-3)
+**Goal:** Core infrastructure and basic CRUD operations
+
+**Week 1: Project Setup**
+- Repository structure and monorepo configuration
+- Database schema and Prisma setup
+- Basic authentication with Auth0
+- CI/CD pipeline setup
+
+**Week 2: Core Modules**
+- Consultant and Requirement CRUD operations
+- Basic UI with shadcn/ui components
+- Database migrations and seed data
+- API documentation with OpenAPI
+
+**Week 3: Multi-tenancy**
+- Row-level security implementation
+- Tenant management and user roles
+- Basic dashboard and navigation
+- Unit and integration tests
+
+### Phase 2: AI Integration (Weeks 4-6)
+**Goal:** AI-powered matching and text processing
+
+**Week 4: AI Gateway**
+- OpenAI API integration
+- Text extraction and embedding generation
+- Background job processing with BullMQ
+- Cost monitoring and caching
+
+**Week 5: Matching Engine**
+- Hybrid matching algorithm implementation
+- Explainable scoring with factor breakdown
+- Match history and feedback collection
+- Performance optimization
+
+**Week 6: Email Processing**
+- Email ingestion and parsing
+- Automated requirement creation
+- Resume processing and skill extraction
+- Data validation and error handling
+
+### Phase 3: Workflow & Analytics (Weeks 7-9)
+**Goal:** Complete submission workflow and reporting
+
+**Week 7: Submission Workflow**
+- Submission creation and management
+- Status tracking and notifications
+- Interview scheduling integration
+- Timeline and activity logging
+
+**Week 8: Analytics & Reporting**
+- Dashboard with key metrics
+- Performance analytics and KPIs
+- Data export capabilities
+- Custom report generation
+
+**Week 9: Polish & Testing**
+- End-to-end testing with Playwright
+- Performance testing and optimization
+- Security audit and compliance checks
+- User acceptance testing
+
+### Phase 4: Production Ready (Weeks 10-12)
+**Goal:** Production deployment and monitoring
+
+**Week 10: Infrastructure**
+- AWS infrastructure setup with Terraform
+- Production database configuration
+- CDN and caching setup
+- Backup and disaster recovery
+
+**Week 11: Monitoring & Security**
+- Application monitoring with Sentry
+- Performance monitoring and alerting
+- Security hardening and compliance
+- Load testing and capacity planning
+
+**Week 12: Launch Preparation**
+- Production deployment and testing
+- User documentation and training
+- Go-live checklist and rollback plan
+- Post-launch monitoring and support
 
 ---
 
-## 19) Analytics & BI
+## 13) Team Structure & Responsibilities
 
-* **Operational metrics:** pipeline throughput, match conversion, recruiter productivity.
-* **Business dashboards:** revenue per consultant, fill time, client win rate.
-* **Warehouse (optional R3):** CDC → S3 → DuckDB/BigQuery + dbt models.
+### Core Teams (20 Engineers)
+
+#### Frontend Team (5 Engineers)
+- **Lead Frontend Engineer** — Architecture, performance, team coordination
+- **Senior Frontend Engineers (3)** — Feature development, component library
+- **UX Engineer** — Design system, accessibility, user experience
+
+#### Backend Team (6 Engineers)
+- **Staff Backend Engineer** — Architecture, database design, team leadership
+- **Senior Backend Engineers (3)** — API development, business logic
+- **AI/ML Engineer** — Matching algorithms, AI integration
+- **DevOps Engineer** — Infrastructure, CI/CD, monitoring
+
+#### Full-Stack Team (4 Engineers)
+- **Senior Full-Stack Engineers (4)** — Cross-cutting features, integrations
+
+#### QA & Testing (3 Engineers)
+- **QA Lead** — Test strategy, automation framework
+- **QA Engineers (2)** — Manual testing, test automation
+
+#### Product & Design (2 Engineers)
+- **Product Manager** — Requirements, user stories, prioritization
+- **UX Designer** — User research, wireframes, design system
+
+### Key Roles & Responsibilities
+
+#### Technical Leadership
+- **Architecture decisions** and technology choices
+- **Code review** and quality standards
+- **Performance optimization** and scalability planning
+- **Security** and compliance oversight
+
+#### Development Process
+- **Agile methodology** with 2-week sprints
+- **Daily standups** and weekly retrospectives
+- **Pair programming** for complex features
+- **Knowledge sharing** sessions and documentation
 
 ---
 
-## 20) Documentation & DX
+## 14) Success Metrics & KPIs
 
-* **Living ADRs:** decisions with trade‑offs.
-* **API Docs:** OpenAPI + examples; Postman/Insomnia collections.
-* **Runbooks:** ingestion issues, queue stuck, model rollback.
-* **Playbooks:** matching quality triage, data cleanup campaigns.
+### Business Metrics
+* **Match Accuracy:** 70%+ of recommendations result in successful placements
+* **Time to Match:** Reduce average matching time from days to minutes
+* **User Adoption:** 80%+ of users actively using AI recommendations
+* **Cost Efficiency:** 50% reduction in manual matching time
+* **Revenue Impact:** 25% increase in placement success rate
+
+### Technical Metrics
+* **Performance:** API response times < 300ms (p95)
+* **Availability:** 99.9% uptime for core features
+* **AI Accuracy:** Match score correlation with actual success > 0.7
+* **Data Quality:** 95%+ successful text extraction rate
+* **Security:** Zero critical security vulnerabilities
+
+### User Experience Metrics
+* **User Satisfaction:** NPS score > 50
+* **Feature Adoption:** 60%+ of users using advanced features
+* **Support Tickets:** < 5% of users requiring support
+* **Training Time:** New users productive within 2 hours
+* **Accessibility:** WCAG 2.1 AA compliance
 
 ---
 
-## 21) Environment Variables (additions)
+## 15) Getting Started Guide
 
+### Prerequisites
+* Node.js 18+ and pnpm
+* Docker and Docker Compose
+* PostgreSQL 15+ with pgvector extension
+* Redis 6+
+* AWS CLI configured
+* Auth0 account for authentication
+
+### Quick Start Commands
+
+```bash
+# Clone and setup
+git clone <repository-url>
+cd benchcrm
+pnpm install
+
+# Start development environment
+docker-compose up -d postgres redis
+pnpm db:migrate
+pnpm db:seed
+
+# Start applications
+pnpm dev:web    # Frontend on http://localhost:3000
+pnpm dev:api    # Backend on http://localhost:4000
+
+# Run tests
+pnpm test
+pnpm test:e2e
 ```
-TENANT_MODE=single|multi
-JWT_AUD=benchcrm
-AI_MAX_TOKENS_DAY=250000
-RATE_LIMIT_CORE=200rps
-OBJECT_STORAGE_BUCKET=benchcrm
-INTEGRATIONS_EMAIL_*=...
+
+### Development Workflow
+
+1. **Feature Development**
+   ```bash
+   git checkout -b feature/consultant-matching
+   # Make changes
+   pnpm test
+   git commit -m "feat: implement consultant matching algorithm"
+   git push origin feature/consultant-matching
+   # Create pull request
+   ```
+
+2. **Database Changes**
+   ```bash
+   # Modify Prisma schema
+   pnpm db:generate
+   pnpm db:migrate:dev
+   pnpm db:seed
+   ```
+
+3. **Testing**
+   ```bash
+   pnpm test:unit        # Unit tests
+   pnpm test:integration # API tests
+   pnpm test:e2e         # End-to-end tests
+   pnpm test:load        # Performance tests
+   ```
+
+### Environment Configuration
+
+```bash
+# .env.local
+DATABASE_URL="postgresql://user:pass@localhost:5432/benchcrm"
+REDIS_URL="redis://localhost:6379"
+AUTH0_DOMAIN="your-domain.auth0.com"
+AUTH0_CLIENT_ID="your-client-id"
+OPENAI_API_KEY="your-openai-key"
+AWS_ACCESS_KEY_ID="your-access-key"
+AWS_SECRET_ACCESS_KEY="your-secret-key"
 ```
 
 ---
 
-## 22) Acceptance & Launch Checklist
-
-* [ ] RLS policies enabled and tested
-* [ ] SSO, MFA, session policies configured
-* [ ] Backups + restore drill passed
-* [ ] Load test meets p95 targets
-* [ ] A11y audit (axe) passes
-* [ ] Security scan clean (high/critical)
-* [ ] Analytics & audit exports enabled
-* [ ] Documentation complete (user/admin/dev)
-
----
-
-### The Result: Strong & Beautiful
-
-* **Strong:** resilient architecture, observability, governance, and calibrated AI.
-* **Beautiful:** cohesive design system, subtle motion, crisp information density, accessible & fast.
-* **Practical:** human‑in‑the‑loop controls, explainability, and cost awareness baked in.
-
-> This plan positions BenchCRM as an enterprise‑grade, AI‑native CRM your 20‑senior‑engineer team can deliver with confidence and pride.
-
-Tech Stack (Final)
-Frontend
-
-Framework: Next.js 14 (App Router, React 18, TypeScript)
-
-UI: Tailwind CSS + shadcn/ui (headless, accessible primitives)
-
-Motion: Framer Motion (micro-interactions, low overhead)
-
-State & Data: TanStack Query (server cache) + Zustand (local UI state)
-
-Forms & Validation: React Hook Form + Zod
-
-Tables/Lists: TanStack Table (virtualized lists)
-
-Charts: Recharts
-
-Auth: Auth0 (OIDC/OAuth2; can swap for Entra/Keycloak later)
-
-i18n: next-intl (routing-friendly)
-
-Testing: Playwright (e2e), Vitest + Testing Library (unit/comp)
-
-Why this FE stack?
-
-Performance & DX: Next.js App Router gives RSC, streaming, route-level caching; Tailwind + shadcn/ui accelerates consistent, accessible UI.
-
-Scalability: TanStack Query standardizes async/data cache; Zustand is tiny for local UI state.
-
-Enterprise-ready: Auth0/SSO path is mature; Playwright + Vitest give reliable test coverage.
-
-Beauty + Speed: Framer Motion for subtle motion without compromising TTI.
-
-Backend
-
-Framework: NestJS 10 (TypeScript)
-
-ORM/DB: Prisma + PostgreSQL 15 (pgvector enabled)
-
-Search: Postgres full-text (tsvector) + vector similarity (pgvector)
-
-Cache & Queue: Redis (cache + BullMQ for jobs)
-
-Events Bus: NATS (lightweight, easy ops) — Kafka optional later
-
-AI Gateway: Provider-agnostic adapters (OpenAI first; pluggable to others)
-
-Auth & Tenancy: Auth0 (JWT), Postgres RLS for tenant isolation
-
-Docs/Contracts: OpenAPI (Swagger) + Pact (consumer contracts)
-
-Observability: OpenTelemetry traces, Prometheus metrics, Loki JSON logs
-
-Testing: Jest (unit/integration with Testcontainers), k6 (load)
-
-Infra (prod): Terraform (VPC, RDS Postgres, Elasticache, S3, NAT, CloudFront), GitHub Actions CI/CD
-
-Why this BE stack?
-
-Velocity + Structure: NestJS modular boundaries fit our “modular monolith” plan; Prisma accelerates schema & migrations safely.
-
-Quality Matching: pgvector keeps vectors next to relational data (joins, ACID, RLS).
-
-Operational Simplicity: NATS + Redis + BullMQ are easy to run; scale later if needed.
-
-Auditability: OpenAPI + Pact + OTEL deliver traceable, contract-driven services.
-
-Implementation Order (What first, then next)
-
-Golden rule: unblock data-in → data-through → value-out (recommendations) quickly; then harden.
-
-Week 0–2 — Foundations
-
-Monorepo (pnpm + Turborepo), CI lint/test/build, Docker Compose (Postgres + Redis + Mailhog).
-
-Postgres with pgvector, Prisma schema v1 (Tenant, User, Consultant, Requirement, Submission, Embedding, AuditLog).
-
-NestJS app skeleton (Auth, RBAC, Consultants, Requirements modules), RLS scaffolding.
-
-Next.js app shell (layout, theme, tokens), shadcn/ui baseline, auth wiring (Auth0).
-
-Week 3–4 — CRUD + Search (usable app)
-
-FE pages for Consultants/Requirements (list/detail/create/edit), server components + Query.
-
-BE CRUD with validation, pagination, tsvector search.
-
-Audit logging, seed data, basic analytics counters.
-
-E2E happy path (Playwright): login → create consultant → create requirement.
-
-Week 5–6 — Embeddings + Matching v1
-
-AI Gateway (embeddings + chat); embedding jobs (BullMQ).
-
-Matching API: hybrid (rules + cosine) with factor weights & explanation JSON.
-
-FE “Get Recommendations” on requirement detail; factor chips UI.
-
-Initial metrics (Prometheus), traces across API → worker.
-
-Week 7–8 — MVP polish & Observability
-
-Email ingestion (IMAP/Gmail forward) → Requirement parser → normalizer → embeddings.
-
-Dashboard v1: pipeline stats, top skills, basic win-rate.
-
-Load test > 50 RPS read, p95 targets; A11y pass on top pages.
-
-Blue/Green deploy to staging; feature flags.
-
-Week 9–12 — Multi-tenant & SSO, Explainability v2
-
-RLS enforcement + test harness; role matrix; SCIM optional.
-
-Explainable scores: per-factor contributions stored; human-in-the-loop approve workflow.
-
-Submissions module (status flow) + timeline Activities.
-
-Contract tests (Pact) for FE/BE; k6 search/recommend scenarios.
-
-Week 13–16 — Analytics v1 + Hardening
-
-KPI API (fill time, top-5 hit rate, calibration draft).
-
-Alerts/notifications (email/Slack) via workers.
-
-Security gates (SAST/DAST), secrets manager, backup/restore drill.
-
-DR runbook, chaos day, cost dashboards.
-
-Week 17–24 — ML Offline + Calibration + Integrations
-
-Python training jobs (logreg + XGBoost + LTR), model registry, drift & calibration (isotonic).
-
-Shadow predictions vs baseline; promote after A/B.
-
-Integrations v1 (job board/ATS adapter framework).
-
-Warehouse (optional): CDC → S3 → DuckDB/BigQuery + dbt.
-
-Detailed Timeline (Week-by-Week)
-
-R0 — Foundations
-
-W0: Repo bootstrap, Turborepo/pnpm, CI (ESLint, Prettier, TypeCheck), Docker Compose.
-
-W1: DB up (Postgres + pgvector), Prisma models + migrations; NestJS skeleton; Next.js shell; Auth0 dev tenant.
-
-W2: RLS scaffolding & tenancy headers; seed scripts; OTEL + Prometheus/Loki baseline; Playwright scaffold.
-
-R1 — MVP
-
-W3: Consultants/Requirements BE CRUD + OpenAPI; FE list/detail; Zod validations; table filters.
-
-W4: tsvector search + indexes; optimistic mutations; audit logs UI; first E2E suite green.
-
-W5: AI Gateway (embeddings); job pipeline (BullMQ); Embedding table + backfills.
-
-W6: Matching v1 (hybrid) + explain JSON; FE “Recommend” w/ factor chips; metrics panels.
-
-W7: Email ingestion alpha (IMAP/Gmail); normalizer + skill extraction (LLM JSON schema).
-
-W8: Dashboard v1; a11y audit; k6 baseline; stage deploy; smoke tests; MVP sign-off.
-
-R2 — Enterprise Basics
-
-W9: RLS enforcement + unit/integration tests; role matrix + policy guards.
-
-W10: Submissions module (API + FE), status transitions, activity log.
-
-W11: Explainability v2 (stored factors, reason strings), approve/override UI.
-
-W12: SSO polish (Auth0 rules/hooks), SCIM draft, contract tests, load goals.
-
-R3 — Scale, ML & Integrations
-
-W13: KPI/analytics endpoints; Grafana dashboards; cost/tokens panels.
-
-W14: Security scans; DLP/PII tagging; secrets manager; backup/restore drill.
-
-W15: Notifications (email/Slack) w/ rate limits; failure retries; runbooks.
-
-W16: Hardening sprint; perf tuning; error budgets; prod readiness review.
-
-W17–18: Offline training pipeline (Python), feature snapshots, CV splits.
-
-W19–20: Calibration (isotonic/Platt), shadow deploy, monitoring drift.
-
-W21–22: Promote calibrated model; A/B; LTR for top-K.
-
-W23–24: Integrations v1 (ATS/boards), warehouse/dbt optional; GA launch.
-
-Route & Endpoint Map (No Broken Links)
-Frontend URLs (all pages implemented)
-
-/ → Redirect to /dashboard
-
-/dashboard → Analytics cards, trends, pipeline stats
-
-/consultants → List + filters
-
-/consultants/new → Create form
-
-/consultants/[id] → Detail (profile, skills, activity)
-
-/requirements → List + filters
-
-/requirements/new → Create form
-
-/requirements/[id] → Detail + “Get Recommendations”
-
-/matches → Human-in-the-loop review queue
-
-/submissions → List & status
-
-/submissions/[id] → Detail timeline
-
-/ai-chat → Conversational UI over CRM
-
-/audit → Audit trails & exports
-
-/settings → Tenant, roles, API keys, webhooks
-
-Each route ships with a matching page component and loader/actions; all links above must be present in the app nav and smoke-tested.
-
-Backend (REST, versioned under /v1)
-
-GET /v1/consultants (q, page, sort)
-
-POST /v1/consultants
-
-GET /v1/consultants/:id
-
-PATCH /v1/consultants/:id
-
-DELETE /v1/consultants/:id
-
-GET /v1/consultants/analytics/overview
-
-GET /v1/requirements
-
-POST /v1/requirements
-
-GET /v1/requirements/:id
-
-PATCH /v1/requirements/:id
-
-DELETE /v1/requirements/:id
-
-GET /v1/requirements/:id/recommendations (topK, explain)
-
-POST /v1/requirements/:id/submit (consultantId)
-
-POST /v1/integrations/inbox/import (email payload/IMAP ref)
-
-POST /v1/ai/extract (schema_name, text)
-
-POST /v1/ai/embeddings
-
-POST /v1/ai/match-score
-
-GET /v1/ai/analytics/:tenantId
-
-GET /v1/audit/logs (filters, export)
-
-GET /v1/analytics/kpis (dashboard aggregates)
-
-OpenAPI served at /v1/docs and /v1/docs-json. Contract tests ensure FE calls only defined endpoints.
-
-Environments & Links (for local/stage/prod)
-
-Local (Docker Compose):
-
-Web: http://localhost:3000
-
-API: http://localhost:4000
-
-API Docs: http://localhost:4000/v1/docs
-
-Mailhog: http://localhost:8025
-
-Postgres: localhost:5432
-
-Redis: localhost:6379
-
-Staging/Prod: use WEB_BASE_URL and API_BASE_URL; FE fetches from NEXT_PUBLIC_API_URL so no hard-coded hostnames. Health checks: /healthz (API), /api/healthz (FE).
-
-Build Prompts (copy/paste to kick teams off)
-Repo bootstrap (DevOps)
-
-“Create a Turborepo with apps/web (Next.js 14) and apps/api (NestJS 10). Add shared packages/ui (shadcn components), packages/config (eslint, tsconfig). Configure pnpm workspaces, GitHub Actions for lint/test/build, and Docker Compose for Postgres (with pgvector), Redis, and Mailhog.”
-
-Database & RLS (Backend)
-
-“Implement Prisma models for Tenant, User, Role, Consultant, Requirement, Submission, Embedding, AuditLog. Add migrations enabling CREATE EXTENSION IF NOT EXISTS vector;. Add RLS policies keyed by tenant_id and a request-scoped SET app.tenant_id='…' in a NestJS middleware. Provide seed and factory scripts.”
-
-Matching & Embeddings (Backend)
-
-“Add AI Gateway with adapters for embeddings and chat. Implement BullMQ jobs for embedding upserts and backfills. Create POST /v1/requirements/:id/recommendations that returns topK with factor contributions and reasons.”
-
-UI System (Frontend)
-
-“Install Tailwind + shadcn/ui; create design tokens (spacing/typography/colors) and a theme switcher. Implement a 3-pane layout, Command-K palette, and skeleton loaders. Build list/detail pages for Consultants and Requirements using TanStack Query, Table, and RHF+Zod.”
-
-Email Ingestion (Workers)
-
-“Implement IMAP/Gmail ingestion job that converts emails → Requirement DTO, runs LLM JSON-schema extraction, normalizes skills via taxonomy, stores embeddings, and emits a RequirementImported event on NATS.”
-
-Observability (Platform)
-
-“Wire OpenTelemetry across API and workers, Prometheus metrics (RED), Loki structured logs, Grafana dashboards for latency (p95), queue depth, token usage, and vector index size. Add /healthz and readiness endpoints.”
-
-Acceptance Gates per Milestone (short)
-
-MVP (W8): All FE routes implemented; CRUD + search; recommendations v1; E2E happy path; docs at /v1/docs; A11y basic pass; p95 browse ≤ 300ms, search ≤ 600ms.
-
-R2 (W12): RLS enforced; SSO; explainability stored; submissions flow; k6 targets met; contract tests pass.
-
-R3 (W24): Calibrated probabilities live; alerts; at least one external integration; DR drill complete; SOC2-friendly controls in place.
+## 16) Conclusion
+
+### Why This Approach Works
+
+**MVP-First Strategy:**
+- **Fast Time to Market:** 12 weeks to production-ready MVP
+- **Lower Risk:** Modular monolith reduces complexity and operational overhead
+- **Better ROI:** Focus on core value proposition before adding complexity
+- **Easier Iteration:** Quick feedback loops and feature adjustments
+
+**Enterprise-Ready Foundation:**
+- **Scalable Architecture:** Clear module boundaries enable future microservices migration
+- **Security & Compliance:** Built-in multi-tenancy, audit trails, and data protection
+- **AI Integration:** Production-ready matching engine with explainable results
+- **Modern Tech Stack:** Proven technologies with excellent developer experience
+
+**Realistic Timeline:**
+- **12-week MVP** delivers core value and validates market fit
+- **20-engineer team** provides adequate resources without over-engineering
+- **Phased approach** allows for learning and course correction
+- **Clear milestones** ensure progress and quality gates
+
+### Next Steps
+
+1. **Team Assembly:** Recruit and onboard the 20-engineer team
+2. **Infrastructure Setup:** Provision AWS resources and development environment
+3. **Sprint Planning:** Break down 12-week timeline into 2-week sprints
+4. **Stakeholder Alignment:** Ensure business requirements and success metrics
+5. **Development Start:** Begin with foundation phase (Weeks 1-3)
+
+### Success Factors
+
+- **Strong Technical Leadership:** Experienced architects and team leads
+- **Clear Requirements:** Well-defined user stories and acceptance criteria
+- **Regular Communication:** Daily standups and weekly stakeholder updates
+- **Quality Focus:** Comprehensive testing and code review processes
+- **User Feedback:** Early and continuous user input and validation
+
+**This plan delivers a production-ready, AI-powered CRM that transforms bench sales operations while maintaining the flexibility to scale and evolve with your business needs.**

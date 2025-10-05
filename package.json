@@ -1,0 +1,20 @@
+{
+  "name": "benchcrm",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "postinstall": "pnpm -r generate",
+    "lint": "pnpm -r lint",
+    "build": "pnpm -r build",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "test": "pnpm -r test"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.28.4",
+    "@babel/traverse": "^7.28.4",
+    "express-list-endpoints": "^7.1.1",
+    "fast-glob": "^3.3.3"
+  }
+}

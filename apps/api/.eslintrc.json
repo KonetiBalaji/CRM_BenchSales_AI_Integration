@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "env": {
+    "node": true
+  },
+  "parserOptions": {
+    "project": ["./tsconfig.json"],
+    "tsconfigRootDir": "__dirname"
+  },
+  "plugins": ["import"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "plugin:import/recommended"],
+  "parser": "@typescript-eslint/parser",
+  "rules": {
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "import/order": ["warn", { "newlines-between": "always" }]
+  }
+}

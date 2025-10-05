@@ -1,0 +1,35 @@
+extensions:
+  health_check:
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  batch:
+exporters:
+  logging:
+    loglevel: info
+  file/traces:
+    path: /var/lib/otelcol/traces.jsonl
+  file/logs:
+    path: /var/lib/otelcol/logs.jsonl
+  file/metrics:
+    path: /var/lib/otelcol/metrics.jsonl
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file/traces, logging]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file/logs, logging]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file/metrics, logging]

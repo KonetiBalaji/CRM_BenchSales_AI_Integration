@@ -1,0 +1,1360 @@
+// Prisma schema for BenchCRM MVP
+
+// Maps to PostgreSQL with pgvector extension enabled
+
+generator client {
+  provider = "prisma-client-js"
+
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+
+  url = env("DATABASE_URL")
+
+  extensions = [pgvector(map: "vector", schema: "public")]
+}
+
+model Tenant {
+  id String @id @default(uuid())
+
+  name String
+
+  domain String? @unique
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  users User[] @relation("TenantUsers")
+
+  consultants Consultant[] @relation("TenantConsultants")
+
+  requirements Requirement[] @relation("TenantRequirements")
+
+  submissions Submission[] @relation("TenantSubmissions")
+
+  matches Match[] @relation("TenantMatches")
+
+  interviews Interview[] @relation("TenantInterviews")
+
+  consultantSkills ConsultantSkill[] @relation("TenantConsultantSkills")
+
+  requirementSkills RequirementSkill[] @relation("TenantRequirementSkills")
+
+  consultantTags ConsultantTag[] @relation("TenantConsultantTags")
+
+  auditLogs AuditLog[] @relation("TenantAuditLogs")
+
+  aiActivities AiActivity[] @relation("TenantAiActivities")
+
+  ingestions RequirementIngestion[] @relation("TenantRequirementIngestions")
+
+  resumes Resume[] @relation("TenantResumes")
+
+  analytics AnalyticsSnapshot[] @relation("TenantAnalyticsSnapshots")
+
+  featureFlags FeatureFlag[] @relation("TenantFeatureFlags")
+  documentAssets DocumentAsset[] @relation("TenantDocumentAssets")
+  documentMetadata DocumentMetadata[] @relation("TenantDocumentMetadata")
+  identitySignatures IdentitySignature[] @relation("TenantIdentitySignatures")
+  identityClusters IdentityCluster[] @relation("TenantIdentityClusters")
+
+  searchDocuments SearchDocument[] @relation("TenantSearchDocuments")
+  matchFeatureSnapshots MatchFeatureSnapshot[] @relation("TenantMatchFeatureSnapshots")
+  matchFeedback MatchFeedback[] @relation("TenantMatchFeedback")
+  
+  // Integration models
+  webhookEvents WebhookEvent[] @relation("TenantWebhookEvents")
+  syncJobs SyncJob[] @relation("TenantSyncJobs")
+  syncConflicts SyncConflict[] @relation("TenantSyncConflicts")
+  externalSystemConfigs ExternalSystemConfig[] @relation("TenantExternalSystemConfigs")
+  syncMetrics SyncMetrics[] @relation("TenantSyncMetrics")
+  manualResolutionTasks ManualResolutionTask[] @relation("TenantManualResolutionTasks")
+  
+  // Billing models
+  subscriptions Subscription[] @relation("TenantSubscriptions")
+  usageRecords UsageRecord[] @relation("TenantUsageRecords")
+  usageAlerts UsageAlert[] @relation("TenantUsageAlerts")
+  costGuardrails CostGuardrail[] @relation("TenantCostGuardrails")
+  
+  // Compliance models
+  complianceRequests ComplianceRequest[] @relation("TenantComplianceRequests")
+  securityAudits SecurityAudit[] @relation("TenantSecurityAudits")
+  consentRecords ConsentRecord[] @relation("TenantConsentRecords")
+  dataProcessingActivities DataProcessingActivity[] @relation("TenantDataProcessingActivities")
+  breachNotifications BreachNotification[] @relation("TenantBreachNotifications")
+  
+  settings Json?
+}
+
+model User {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  email String
+
+  fullName String
+
+  auth0Id String @unique
+
+  role UserRole @default(VIEWER)
+
+  status UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantUsers", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  auditEvents AuditLog[]
+
+  @@unique([tenantId, email])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MANAGER
+  REP
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+
+  INVITED
+
+  DISABLED
+}
+
+model Consultant {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  firstName String
+
+  lastName String
+
+  email String?
+
+  phone String?
+
+  location String?
+  canonicalLocationId String?
+
+  availability ConsultantAvailability @default(AVAILABLE)
+
+  rate Decimal? @db.Decimal(10, 2)
+
+  experience Decimal? @db.Decimal(4, 1)
+
+  summary String?
+
+  resumeUrl String?
+
+  resumeVector Unsupported("vector")?
+
+  skills ConsultantSkill[]
+
+  assignments Match[] @relation("ConsultantMatches")
+
+  submissions Submission[]
+
+  tags ConsultantTag[]
+
+  resumes Resume[]
+
+  preferences Json?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantConsultants", fields: [tenantId], references: [id], onDelete: Cascade)
+  canonicalLocation LocationCanonical? @relation(fields: [canonicalLocationId], references: [id])
+  identitySignatures IdentitySignature[]
+  identityClusterMemberships IdentityClusterMember[]
+  primaryIdentityClusters IdentityCluster[] @relation("PrimaryConsultantCluster")
+  documents DocumentAsset[] @relation("ConsultantDocuments")
+}
+
+enum ConsultantAvailability {
+  AVAILABLE
+
+  INTERVIEWING
+
+  ASSIGNED
+
+  UNAVAILABLE
+}
+
+model Skill {
+  id String @id @default(uuid())
+
+  name String @unique
+  ontologyNodeId String?
+
+  category String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  consultants ConsultantSkill[]
+
+  requirements RequirementSkill[]
+  ontologyNode SkillOntologyNode? @relation(fields: [ontologyNodeId], references: [id])
+}
+
+model ConsultantSkill {
+  tenantId String
+
+  consultantId String
+
+  skillId String
+
+  weight Int @default(50)
+
+  tenant Tenant @relation("TenantConsultantSkills", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, consultantId, skillId])
+}
+
+model Requirement {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  externalId String? @unique
+
+  title String
+
+  clientName String
+
+  location String?
+  canonicalLocationId String?
+
+  type RequirementType @default(CONTRACT)
+
+  minRate Decimal? @db.Decimal(10, 2)
+
+  maxRate Decimal? @db.Decimal(10, 2)
+
+  description String
+
+  status RequirementStatus @default(OPEN)
+
+  source RequirementSource @default(MANUAL)
+
+  postedAt DateTime @default(now())
+
+  closesAt DateTime?
+
+  embeddings Unsupported("vector")?
+
+  metadata Json?
+
+  skills RequirementSkill[]
+
+  matches Match[]
+
+  submissions Submission[]
+  documents DocumentAsset[] @relation("RequirementDocuments")
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantRequirements", fields: [tenantId], references: [id], onDelete: Cascade)
+  canonicalLocation LocationCanonical? @relation(fields: [canonicalLocationId], references: [id])
+}
+
+enum RequirementType {
+  CONTRACT
+
+  FULL_TIME
+
+  CONTRACT_TO_HIRE
+}
+
+enum RequirementStatus {
+  OPEN
+
+  IN_PROGRESS
+
+  ON_HOLD
+
+  CLOSED
+}
+
+enum RequirementSource {
+  MANUAL
+
+  EMAIL
+
+  PORTAL
+
+  API
+}
+
+model RequirementSkill {
+  tenantId String
+
+  requirementId String
+
+  skillId String
+
+  weight Int @default(50)
+
+  tenant Tenant @relation("TenantRequirementSkills", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, requirementId, skillId])
+}
+
+model Match {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  consultantId String
+
+  requirementId String
+
+  score Float
+
+  explanation Json
+
+  status MatchStatus @default(REVIEW)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  feedback Json?
+
+  featureSnapshots MatchFeatureSnapshot[] @relation("MatchFeatureSnapshots")
+  feedbackRecords MatchFeedback[] @relation("MatchFeedbackRecords")
+
+  tenant Tenant @relation("TenantMatches", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  consultant Consultant @relation("ConsultantMatches", fields: [consultantId], references: [id], onDelete: Cascade)
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  submission Submission?
+  @@unique([tenantId, consultantId, requirementId], name: "tenant_consultant_requirement")
+}
+
+enum MatchStatus {
+  REVIEW
+
+  SHORTLISTED
+
+  SUBMITTED
+
+  REJECTED
+
+  HIRED
+}
+
+model MatchFeatureSnapshot {
+  id String @id @default(uuid())
+
+  tenantId String
+  matchId String?
+  requirementId String
+  consultantId String
+  modelVersion String
+  features Json
+  explanation Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantMatchFeatureSnapshots", fields: [tenantId], references: [id], onDelete: Cascade)
+  match Match? @relation("MatchFeatureSnapshots", fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, requirementId, consultantId])
+  @@index([matchId])
+}
+
+model MatchFeedback {
+  id String @id @default(uuid())
+
+  tenantId String
+  matchId String
+  outcome MatchFeedbackOutcome @default(NEUTRAL)
+  rating Int?
+  reason String?
+  submittedBy String?
+  metadata Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantMatchFeedback", fields: [tenantId], references: [id], onDelete: Cascade)
+  match Match @relation("MatchFeedbackRecords", fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, matchId])
+}
+
+enum MatchFeedbackOutcome {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+  HIRED
+  REJECTED
+}
+
+
+model Submission {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  consultantId String
+
+  requirementId String
+
+  matchId String? @unique
+
+  status SubmissionStatus @default(DRAFT)
+
+  submittedAt DateTime?
+
+  notes Json?
+
+  interviews Interview[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantSubmissions", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  match Match? @relation(fields: [matchId], references: [id])
+}
+
+enum SubmissionStatus {
+  DRAFT
+
+  SUBMITTED
+
+  INTERVIEW
+
+  OFFER
+
+  HIRED
+
+  LOST
+}
+
+model Interview {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  submissionId String
+
+  scheduledAt DateTime
+
+  interviewer String?
+
+  mode InterviewMode @default(VIDEO)
+
+  feedback Json?
+
+  outcome InterviewOutcome @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantInterviews", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, scheduledAt])
+}
+
+enum InterviewMode {
+  VIDEO
+
+  PHONE
+
+  ONSITE
+}
+
+enum InterviewOutcome {
+  PENDING
+
+  PASSED
+
+  FAILED
+
+  WITHDRAWN
+}
+
+model ConsultantTag {
+  tenantId String
+
+  consultantId String
+
+  value String
+
+  tenant Tenant @relation("TenantConsultantTags", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, consultantId, value])
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  userId String?
+
+  action String
+
+  entityType String
+
+  entityId String
+
+  payload Json?
+
+  actorRole UserRole?
+
+  ipAddress String?
+
+  userAgent String?
+
+  resultCode String?
+
+  prevHash String?
+
+  hash String
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantAuditLogs", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+model AiActivity {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  type AiActivityType
+
+  inputHash String
+
+  cost Decimal @db.Decimal(8, 4)
+
+  tokens Int
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantAiActivities", fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+enum AiActivityType {
+  EMBEDDING
+
+  COMPLETION
+
+  CLASSIFICATION
+
+  EXTRACTION
+}
+
+model RequirementIngestion {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  source RequirementSource @default(EMAIL)
+
+  rawContent String
+  contentHash String
+
+  parsedData Json?
+
+  status IngestionStatus @default(PENDING)
+
+  error String?
+  processedAt DateTime?
+  latencyMs Int?
+  retryCount Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantRequirementIngestions", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status])
+}
+
+enum IngestionStatus {
+  PENDING
+
+  PROCESSED
+
+  FAILED
+}
+
+model Resume {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  consultantId String
+
+  fileKey String
+
+  parsedData Json?
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantResumes", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsSnapshot {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  periodStart DateTime
+
+  periodEnd DateTime
+
+  metrics Json
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation("TenantAnalyticsSnapshots", fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model FeatureFlag {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  key String
+
+  enabled Boolean @default(false)
+
+  config Json?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantFeatureFlags", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+}
+
+
+
+
+
+
+
+
+
+
+
+
+enum DocumentAssetType {
+  RESUME
+  REQUIREMENT_ATTACHMENT
+  CANDIDATE_NOTE
+  OTHER
+}
+
+enum DocumentIngestionStatus {
+  PENDING
+  PROCESSING
+  COMPLETE
+  FAILED
+}
+
+enum PiiScanStatus {
+  UNKNOWN
+  CLEAN
+  FLAGGED
+}
+
+enum IdentitySignatureType {
+  EMAIL
+  PHONE
+  NAME
+}
+
+enum IdentityClusterStatus {
+  PENDING_REVIEW
+  APPROVED
+  MERGED
+  REJECTED
+}
+
+enum SkillAliasMatchType {
+  SYNONYM
+  ACRONYM
+  STEM
+  CUSTOM
+}
+
+model DocumentAsset {
+  id String @id @default(uuid())
+
+  tenantId String
+  kind DocumentAssetType
+  fileName String
+  contentType String
+  sizeBytes Int
+  storageBucket String
+  storageKey String
+  consultantId String?
+  requirementId String?
+  uploadedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  metadata DocumentMetadata?
+  tenant Tenant @relation("TenantDocumentAssets", fields: [tenantId], references: [id], onDelete: Cascade)
+  consultant Consultant? @relation("ConsultantDocuments", fields: [consultantId], references: [id])
+  requirement Requirement? @relation("RequirementDocuments", fields: [requirementId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, consultantId])
+  @@index([tenantId, requirementId])
+}
+
+model DocumentMetadata {
+  documentId String @id
+  tenantId String
+
+  sha256 String
+  sha1 String?
+  md5 String?
+  ingestionStatus DocumentIngestionStatus @default(PENDING)
+  piiStatus PiiScanStatus @default(UNKNOWN)
+  piiSummary Json?
+  pageCount Int?
+  textByteSize Int?
+  ingestionLatencyMs Int?
+  extractedAt DateTime?
+  lastRedactionAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  document DocumentAsset @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation("TenantDocumentMetadata", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sha256])
+}
+
+model SkillOntologyVersion {
+  id String @id @default(uuid())
+
+  version String
+  source String
+  revisionNotes String?
+  checksum String?
+  isActive Boolean @default(false)
+  createdAt DateTime @default(now())
+  publishedAt DateTime?
+
+  nodes SkillOntologyNode[]
+
+  @@unique([version])
+}
+
+model SkillOntologyNode {
+  id String @id @default(uuid())
+
+  versionId String
+  canonicalName String
+  code String?
+  category String?
+  description String?
+  tags String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  version SkillOntologyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  aliases SkillOntologyAlias[]
+  skills Skill[]
+
+  @@unique([versionId, canonicalName])
+  @@index([versionId, code])
+}
+
+model SkillOntologyAlias {
+  id String @id @default(uuid())
+
+  nodeId String
+  value String
+  locale String?
+  matchType SkillAliasMatchType @default(SYNONYM)
+  confidence Int?
+  createdAt DateTime @default(now())
+
+  node SkillOntologyNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeId, value])
+  @@index([value])
+}
+
+model LocationCanonical {
+  id String @id @default(uuid())
+
+  canonicalName String
+  countryCode String
+  region String?
+  metroArea String?
+  latitude Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aliases LocationAlias[]
+  consultants Consultant[]
+  requirements Requirement[]
+
+  @@unique([canonicalName, countryCode])
+}
+
+model LocationAlias {
+  id String @id @default(uuid())
+
+  locationId String
+  value String
+  locale String?
+  createdAt DateTime @default(now())
+
+  location LocationCanonical @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, value])
+  @@index([value])
+}
+
+model IdentitySignature {
+  id String @id @default(uuid())
+
+  tenantId String
+  consultantId String
+  type IdentitySignatureType
+  valueHash String
+  rawValue String?
+  source String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantIdentitySignatures", fields: [tenantId], references: [id], onDelete: Cascade)
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, valueHash, consultantId])
+  @@index([tenantId, type, valueHash])
+}
+
+model IdentityCluster {
+  id String @id @default(uuid())
+
+  tenantId String
+  primaryConsultantId String
+  status IdentityClusterStatus @default(PENDING_REVIEW)
+  confidence Int?
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantIdentityClusters", fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryConsultant Consultant @relation("PrimaryConsultantCluster", fields: [primaryConsultantId], references: [id])
+  members IdentityClusterMember[]
+
+  @@index([tenantId, status])
+}
+
+model IdentityClusterMember {
+  id String @id @default(uuid())
+
+  clusterId String
+  consultantId String
+  similarity Decimal? @db.Decimal(5, 4)
+  reasons Json?
+  createdAt DateTime @default(now())
+
+  cluster IdentityCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([clusterId, consultantId])
+}
+
+
+enum SearchEntityType {
+  CONSULTANT
+  REQUIREMENT
+}
+
+model SearchDocument {
+  id String @id @default(uuid())
+
+  tenantId String
+  entityType SearchEntityType
+  entityId String
+  content String
+  embedding Unsupported("vector(3072)")
+  searchVector Unsupported("tsvector")
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation("TenantSearchDocuments", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, entityType, entityId])
+  @@index([tenantId, entityType])
+}
+
+// Integration Models
+model WebhookEvent {
+  id String @id @default(uuid())
+  
+  tenantId String
+  provider String
+  type String
+  payload Json
+  status WebhookEventStatus @default(PENDING)
+  retryCount Int @default(0)
+  errorMessage String?
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantWebhookEvents", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([id, tenantId, provider])
+  @@index([tenantId, provider, status])
+  @@index([tenantId, createdAt])
+}
+
+model SyncJob {
+  id String @id @default(uuid())
+  
+  tenantId String
+  provider String
+  direction SyncDirection
+  entityType String
+  entityId String
+  status SyncJobStatus @default(PENDING)
+  payload Json?
+  retryCount Int @default(0)
+  errorMessage String?
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantSyncJobs", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, provider, status])
+  @@index([tenantId, createdAt])
+}
+
+model SyncConflict {
+  id String @id @default(uuid())
+  
+  tenantId String
+  provider String
+  entityType String
+  entityId String
+  localData Json
+  remoteData Json
+  conflictFields String[]
+  status SyncConflictStatus @default(PENDING)
+  resolution Json?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantSyncConflicts", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, provider, status])
+  @@index([tenantId, createdAt])
+}
+
+model ExternalSystemConfig {
+  id String @id @default(uuid())
+  
+  tenantId String
+  provider String
+  credentials Json
+  syncSettings Json
+  fieldMappings Json
+  webhookSettings Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantExternalSystemConfigs", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([tenantId, provider])
+}
+
+model SyncMetrics {
+  id String @id @default(uuid())
+  
+  tenantId String
+  provider String
+  period String
+  totalSyncs Int @default(0)
+  successfulSyncs Int @default(0)
+  failedSyncs Int @default(0)
+  conflictsDetected Int @default(0)
+  conflictsResolved Int @default(0)
+  averageLatency Int @default(0) // milliseconds
+  lastSyncAt DateTime?
+  createdAt DateTime @default(now())
+  
+  tenant Tenant @relation("TenantSyncMetrics", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, provider, period])
+  @@index([tenantId, createdAt])
+}
+
+model ManualResolutionTask {
+  id String @id @default(uuid())
+  
+  tenantId String
+  conflictId String
+  notes String?
+  status ManualResolutionStatus @default(PENDING)
+  assignedTo String?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantManualResolutionTasks", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+// Integration Enums
+enum WebhookEventStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SyncDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum SyncJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SyncConflictStatus {
+  PENDING
+  RESOLVED
+  ESCALATED
+}
+
+enum ManualResolutionStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+// Billing Models
+model Subscription {
+  id String @id @default(uuid())
+  
+  tenantId String
+  stripeCustomerId String
+  stripeSubscriptionId String @unique
+  plan String
+  status SubscriptionStatus
+  currentPeriodStart DateTime
+  currentPeriodEnd DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantSubscriptions", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([stripeSubscriptionId])
+}
+
+model UsageRecord {
+  id String @id @default(uuid())
+  
+  tenantId String
+  embeddings Int @default(0)
+  llmTokens Int @default(0)
+  apiCalls Int @default(0)
+  storageBytes BigInt @default(0)
+  period DateTime
+  createdAt DateTime @default(now())
+  
+  tenant Tenant @relation("TenantUsageRecords", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, period])
+  @@index([tenantId, createdAt])
+}
+
+model UsageAlert {
+  id String @id @default(uuid())
+  
+  tenantId String
+  alerts Json
+  status UsageAlertStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  
+  tenant Tenant @relation("TenantUsageAlerts", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model CostGuardrail {
+  id String @id @default(uuid())
+  
+  tenantId String @unique
+  monthlyBudget Decimal @db.Decimal(10, 2)
+  alertThreshold Int @default(80) // percentage
+  currentSpend Decimal @default(0) @db.Decimal(10, 2)
+  lastAlertSent DateTime?
+  status CostGuardrailStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantCostGuardrails", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+}
+
+// Billing Enums
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAST_DUE
+  TRIALING
+  UNPAID
+  CANCEL_AT_PERIOD_END
+}
+
+enum UsageAlertStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum CostGuardrailStatus {
+  ACTIVE
+  EXCEEDED
+  DISABLED
+}
+
+// Compliance Models
+model ComplianceRequest {
+  id String @id @default(uuid())
+  
+  tenantId String
+  type ComplianceRequestType
+  status ComplianceRequestStatus @default(PENDING)
+  requestedAt DateTime @default(now())
+  requestedBy String
+  completedAt DateTime?
+  processingTimeMs Int?
+  dataHash String?
+  errorMessage String?
+  metadata Json?
+  
+  tenant Tenant @relation("TenantComplianceRequests", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+  @@index([tenantId, requestedAt])
+}
+
+model SecurityAudit {
+  id String @id @default(uuid())
+  
+  tenantId String
+  auditDate DateTime @default(now())
+  status SecurityAuditStatus
+  score Int
+  issues Json
+  recommendations Json
+  nextAuditDate DateTime?
+  
+  tenant Tenant @relation("TenantSecurityAudits", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, auditDate])
+  @@index([tenantId, status])
+}
+
+model ConsentRecord {
+  id String @id @default(uuid())
+  
+  tenantId String
+  userId String
+  consentType ConsentType
+  granted Boolean
+  grantedAt DateTime @default(now())
+  withdrawnAt DateTime?
+  legalBasis LegalBasis
+  purpose String
+  dataCategories String[]
+  retentionPeriod Int
+  version String @default("1.0")
+  
+  tenant Tenant @relation("TenantConsentRecords", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, userId])
+  @@index([tenantId, consentType])
+  @@index([tenantId, granted])
+}
+
+model DataProcessingActivity {
+  id String @id @default(uuid())
+  
+  tenantId String
+  name String
+  purpose String
+  legalBasis String
+  dataCategories String[]
+  dataSubjects String[]
+  recipients String[]
+  thirdCountryTransfers Boolean @default(false)
+  retentionPeriod Int
+  securityMeasures String[]
+  dpoContact String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tenant Tenant @relation("TenantDataProcessingActivities", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+}
+
+model BreachNotification {
+  id String @id @default(uuid())
+  
+  tenantId String
+  incidentDate DateTime
+  discoveredDate DateTime
+  reportedDate DateTime
+  type BreachType
+  severity BreachSeverity
+  affectedDataSubjects Int
+  affectedDataCategories String[]
+  cause String
+  impact String
+  containment String
+  remediation String
+  notificationRequired Boolean @default(false)
+  authoritiesNotified Boolean @default(false)
+  dataSubjectsNotified Boolean @default(false)
+  status BreachStatus @default(INVESTIGATING)
+  
+  tenant Tenant @relation("TenantBreachNotifications", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId, status])
+  @@index([tenantId, incidentDate])
+  @@index([tenantId, severity])
+}
+
+// Compliance Enums
+enum ComplianceRequestType {
+  DATA_EXPORT
+  DATA_ERASURE
+  DATA_RECTIFICATION
+  DATA_PORTABILITY
+}
+
+enum ComplianceRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SecurityAuditStatus {
+  PASSED
+  FAILED
+  WARNING
+}
+
+enum ConsentType {
+  DATA_PROCESSING
+  MARKETING
+  ANALYTICS
+  THIRD_PARTY_SHARING
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+}
+
+enum BreachType {
+  DATA_BREACH
+  SECURITY_INCIDENT
+  UNAUTHORIZED_ACCESS
+  DATA_LOSS
+}
+
+enum BreachSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BreachStatus {
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+  CLOSED
+}
+

@@ -1,0 +1,12 @@
+﻿node_modules/
+dist/
+.pnpm-store/
+.env*
+.DS_Store
+coverage/
+.prisma/
+.next/
+.vscode/
+
+
+

@@ -211,7 +211,7 @@ export class AiAssistantsController {
    * {
    *   "consultantId": "consultant-123",
    *   "requirementId": "req-456",
-   *   "notes": "Great candidate! #react #senior TODO: Schedule follow-up interview"
+   *   "notes": "Great candidate! #react #senior ACTION: Schedule follow-up interview"
    * }
    * 
    * // Response format

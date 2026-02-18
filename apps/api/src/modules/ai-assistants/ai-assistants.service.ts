@@ -204,7 +204,7 @@ export class AiAssistantsService {
    * 
    * This method analyzes post-call notes to extract hashtags and action items
    * that can be used to automatically update CRM records with relevant metadata.
-   * It uses regex patterns to identify tags and TODO items.
+   * It uses regex patterns to identify tags and action items.
    * 
    * @param _tenantId - The tenant identifier (currently unused but kept for consistency)
    * @param payload - Object containing post-call information
@@ -218,7 +218,7 @@ export class AiAssistantsService {
    * const metadata = await this.aiAssistants.postCallCrmUpdate("tenant-123", {
    *   consultantId: "consultant-456",
    *   requirementId: "req-789",
-   *   notes: "Great candidate! #react #senior TODO: Schedule follow-up interview"
+   *   notes: "Great candidate! #react #senior ACTION: Schedule follow-up interview"
    * });
    * console.log(metadata.metadata.tags); // ["#react", "#senior"]
    * console.log(metadata.metadata.actionItems); // ["Schedule follow-up interview"]
@@ -230,9 +230,9 @@ export class AiAssistantsService {
       (payload.notes.match(/#[a-z0-9_\-]+/gi) ?? []).map((s) => s.toLowerCase())
     ));
     
-    // Extract action items from TODO patterns
-    const actionItems = (payload.notes.match(/TODO[:\-]\s*(.+)/gi) ?? [])
-      .map((m) => m.replace(/TODO[:\-]\s*/i, "").trim());
+    // Extract action items from ACTION/TODO patterns
+    const actionItems = (payload.notes.match(/(ACTION|TODO)[:\-]\s*(.+)/gi) ?? [])
+      .map((m) => m.replace(/(ACTION|TODO)[:\-]\s*/i, "").trim());
     
     return {
       metadata: { tags, actionItems } as Prisma.JsonObject

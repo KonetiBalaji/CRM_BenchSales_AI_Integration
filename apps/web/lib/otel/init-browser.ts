@@ -2,7 +2,7 @@
 
 import { context, diag, DiagConsoleLogger, DiagLogLevel, propagation, SpanStatusCode, trace } from "@opentelemetry/api";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
-import { Resource } from "@opentelemetry/resources";
+import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchSpanProcessor, ConsoleSpanExporter } from "@opentelemetry/sdk-trace-base";
 import { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
@@ -26,8 +26,8 @@ export function initBrowserTelemetry() {
     return;
   }
 
-  const resource = Resource.default().merge(
-    new Resource({
+  const resource = defaultResource().merge(
+    resourceFromAttributes({
       [SemanticResourceAttributes.SERVICE_NAME]: process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME ?? "benchcrm-web",
       [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NEXT_PUBLIC_DEPLOYMENT_ENV ?? process.env.NODE_ENV ?? "development",
       [SemanticResourceAttributes.SERVICE_NAMESPACE]: "benchcrm",
@@ -35,14 +35,15 @@ export function initBrowserTelemetry() {
     })
   );
 
-  const provider = new WebTracerProvider({ resource });
-
   const otlpBaseEndpoint = process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT?.replace(/\/$/, "");
   const tracesEndpoint = process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ?? (otlpBaseEndpoint ? `${otlpBaseEndpoint}/v1/traces` : undefined);
   const headers = parseHeaders(process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS);
 
   const exporter = tracesEndpoint ? new OTLPTraceExporter({ url: tracesEndpoint, headers }) : new ConsoleSpanExporter();
-  provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+  const provider = new WebTracerProvider({ 
+    resource,
+    spanProcessors: [new BatchSpanProcessor(exporter)]
+  });
 
   provider.register({
     contextManager: new ZoneContextManager(),

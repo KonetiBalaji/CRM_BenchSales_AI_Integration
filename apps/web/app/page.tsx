@@ -50,7 +50,7 @@ async function SummaryCards() {
 
 export default async function Page() {
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
+    <main className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl font-semibold">BenchCRM Overview</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-500">

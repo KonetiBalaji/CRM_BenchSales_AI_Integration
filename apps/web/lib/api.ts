@@ -350,3 +350,180 @@ export function submitMatchFeedback(tenantId: string, matchId: string, payload: 
     }
   });
 }
+
+// Balaji Koneti: AI & Communication API endpoints
+export function startSourcing(tenantId: string, requirementId: string, maxCandidates: number, screeningCriteria: string[]) {
+  return request<{ jobId: string; status: string; estimatedCompletion: string }>("/ai-recruiter-agent/source", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ requirementId, maxCandidates, screeningCriteria })
+    }
+  });
+}
+
+export function startScreening(tenantId: string, candidateIds: string[], screeningQuestions: string[]) {
+  return request<{ jobId: string; status: string; candidatesCount: number }>("/ai-recruiter-agent/screen", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ candidateIds, screeningQuestions })
+    }
+  });
+}
+
+export function startOutreach(tenantId: string, candidateIds: string[], messageTemplate: string, followUpSchedule: { days: number[]; maxAttempts: number }) {
+  return request<{ campaignId: string; status: string; candidatesCount: number }>("/ai-recruiter-agent/outreach", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ candidateIds, messageTemplate, followUpSchedule })
+    }
+  });
+}
+
+export function getAgentPerformance(tenantId: string, period?: string, metricType?: string) {
+  const query = new URLSearchParams();
+  if (period) query.append("period", period);
+  if (metricType) query.append("metricType", metricType);
+  return request<{ sourcing: any; screening: any; outreach: any }>(`/ai-recruiter-agent/performance?${query}`, { tenantId });
+}
+
+export function getInbox(tenantId: string, type?: string, status?: string, limit?: string, offset?: string) {
+  const query = new URLSearchParams();
+  if (type) query.append("type", type);
+  if (status) query.append("status", status);
+  if (limit) query.append("limit", limit);
+  if (offset) query.append("offset", offset);
+  return request<{ communications: any[]; pagination: any }>(`/communications/inbox?${query}`, { tenantId });
+}
+
+export function draftMessage(tenantId: string, type: string, recipient: string, context: Record<string, any>) {
+  return request<{ messageId: string; subject: string; body: string; suggestions: string[] }>("/communications/draft", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ type, recipient, context })
+    }
+  });
+}
+
+export function createCampaign(tenantId: string, name: string, templateId: string, segmentCriteria: Record<string, any>, scheduledAt?: string) {
+  return request<{ campaignId: string; name: string; status: string; audienceSize: number; scheduledAt?: string }>("/email-campaigns", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ name, templateId, segmentCriteria, scheduledAt })
+    }
+  });
+}
+
+export function getCampaigns(tenantId: string, status?: string, limit?: string, offset?: string) {
+  const query = new URLSearchParams();
+  if (status) query.append("status", status);
+  if (limit) query.append("limit", limit);
+  if (offset) query.append("offset", offset);
+  return request<any[]>(`/email-campaigns?${query}`, { tenantId });
+}
+
+export function discoverCandidates(tenantId: string, requirementId: string, searchCriteria: Record<string, any>, maxResults: number, sources: string[]) {
+  return request<{ discoveryId: string; candidates: any[]; totalFound: number; searchTime: string }>("/ai-talent-sourcing/discover", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ requirementId, searchCriteria, maxResults, sources })
+    }
+  });
+}
+
+export function enrichCandidate(tenantId: string, candidateId: string, sources: string[], includeSocial: boolean) {
+  return request<{ candidateId: string; enrichedData: any; confidence: number; lastUpdated: string }>("/ai-talent-sourcing/enrich", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ candidateId, sources, includeSocial })
+    }
+  });
+}
+
+// Balaji Koneti: Analytics & Reports API endpoints
+export function createReport(tenantId: string, name: string, dataSource: string, filters: Record<string, any>, grouping: Record<string, any>, visualization: Record<string, any>) {
+  return request<{ reportId: string; name: string; status: string; dataSource: string; createdAt: string }>("/custom-reports", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ name, dataSource, filters, grouping, visualization })
+    }
+  });
+}
+
+export function getReports(tenantId: string, dataSource?: string, status?: string, limit?: string, offset?: string) {
+  const query = new URLSearchParams();
+  if (dataSource) query.append("dataSource", dataSource);
+  if (status) query.append("status", status);
+  if (limit) query.append("limit", limit);
+  if (offset) query.append("offset", offset);
+  return request<any[]>(`/custom-reports?${query}`, { tenantId });
+}
+
+export function generateReportData(tenantId: string, reportId: string, format?: string, includeMetadata?: string) {
+  const query = new URLSearchParams();
+  if (format) query.append("format", format);
+  if (includeMetadata) query.append("includeMetadata", includeMetadata);
+  return request<{ data: any[]; metadata?: any }>(`/custom-reports/${reportId}/data?${query}`, { tenantId });
+}
+
+export function createInvoice(tenantId: string, placementId: string, clientId: string, amount: number, currency: string, dueDate: string, lineItems: Array<{ description: string; quantity: number; rate: number; amount: number }>) {
+  return request<{ invoiceId: string; invoiceNumber: string; status: string; amount: number; currency: string; dueDate: string; createdAt: string }>("/invoicing/invoices", {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ placementId, clientId, amount, currency, dueDate, lineItems })
+    }
+  });
+}
+
+export function getInvoices(tenantId: string, status?: string, clientId?: string, dateFrom?: string, dateTo?: string, limit?: string, offset?: string) {
+  const query = new URLSearchParams();
+  if (status) query.append("status", status);
+  if (clientId) query.append("clientId", clientId);
+  if (dateFrom) query.append("dateFrom", dateFrom);
+  if (dateTo) query.append("dateTo", dateTo);
+  if (limit) query.append("limit", limit);
+  if (offset) query.append("offset", offset);
+  return request<any[]>(`/invoicing/invoices?${query}`, { tenantId });
+}
+
+export function recordPayment(tenantId: string, invoiceId: string, amount: number, paymentDate: string, paymentMethod: string, reference: string, notes?: string) {
+  return request<{ paymentId: string; invoiceId: string; amount: number; paymentDate: string; status: string; balance: number }>(`/invoicing/invoices/${invoiceId}/payments`, {
+    tenantId,
+    init: {
+      method: "POST",
+      body: JSON.stringify({ amount, paymentDate, paymentMethod, reference, notes })
+    }
+  });
+}
+
+export function getSlaMetrics(tenantId: string, period?: string, serviceType?: string, includeAlerts?: string) {
+  const query = new URLSearchParams();
+  if (period) query.append("period", period);
+  if (serviceType) query.append("serviceType", serviceType);
+  if (includeAlerts) query.append("includeAlerts", includeAlerts);
+  return request<{ overview: any; byService: any; alerts: any[] }>(`/performance-metrics/sla?${query}`, { tenantId });
+}
+
+export function getConversionMetrics(tenantId: string, period?: string, pipelineStage?: string, includeFunnel?: string) {
+  const query = new URLSearchParams();
+  if (period) query.append("period", period);
+  if (pipelineStage) query.append("pipelineStage", pipelineStage);
+  if (includeFunnel) query.append("includeFunnel", includeFunnel);
+  return request<{ overview: any; funnel: any[]; bySource: any }>(`/performance-metrics/conversion?${query}`, { tenantId });
+}
+
+export function getProductivityMetrics(tenantId: string, period?: string, recruiterId?: string, includeTeam?: string) {
+  const query = new URLSearchParams();
+  if (period) query.append("period", period);
+  if (recruiterId) query.append("recruiterId", recruiterId);
+  if (includeTeam) query.append("includeTeam", includeTeam);
+  return request<{ overview: any; byRecruiter: any[]; teamMetrics: any }>(`/performance-metrics/productivity?${query}`, { tenantId });
+}

@@ -1,7 +1,7 @@
 import { context, trace } from "@opentelemetry/api";
 import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from "@nestjs/core";
 import { LoggerModule } from "nestjs-pino";
 
 import { RequestContextMiddleware, RequestContextModule } from "./infrastructure/context";
@@ -17,6 +17,7 @@ import { TenantAccessGuard } from "./modules/auth/guards/tenant.guard";
 import { AiGatewayModule } from "./modules/ai-gateway/ai-gateway.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuditInterceptor } from "./modules/audit/audit.interceptor";
+import { GlobalExceptionFilter } from "./infrastructure/error-handling/global-exception.filter";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { ConsultantsModule } from "./modules/consultants/consultants.module";
 import { DataPlatformModule } from "./modules/data-platform/data-platform.module";
@@ -37,6 +38,13 @@ import { ComplianceModule } from "./modules/compliance/compliance.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { EvalsModule } from "./modules/evals/evals.module";
+import { AiRecruiterAgentModule } from "./modules/ai-recruiter-agent/ai-recruiter-agent.module";
+import { CommunicationsCenterModule } from "./modules/communications-center/communications-center.module";
+import { EmailCampaignsModule } from "./modules/email-campaigns/email-campaigns.module";
+import { AiTalentSourcingModule } from "./modules/ai-talent-sourcing/ai-talent-sourcing.module";
+import { CustomReportsModule } from "./modules/custom-reports/custom-reports.module";
+import { InvoicingModule } from "./modules/invoicing/invoicing.module";
+import { PerformanceMetricsModule } from "./modules/performance-metrics/performance-metrics.module";
 
 @Module({
   imports: [
@@ -93,9 +101,17 @@ import { EvalsModule } from "./modules/evals/evals.module";
     ComplianceModule,
     IntegrationsModule,
     BillingModule,
-    EvalsModule
+    EvalsModule,
+    AiRecruiterAgentModule,
+    CommunicationsCenterModule,
+    EmailCampaignsModule,
+    AiTalentSourcingModule,
+    CustomReportsModule,
+    InvoicingModule,
+    PerformanceMetricsModule
   ],
   providers: [
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: TenantAccessGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
